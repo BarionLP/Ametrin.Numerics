@@ -58,7 +58,8 @@ public readonly struct TensorFlat(int rowCount, int columnCount, int layerCount,
     }
 }
 
-public static class TensorHelper
+[NumericsHelper<Tensor>]
+public static partial class TensorHelper
 {
     [GenerateVariants]
     public static void MapTo(this Tensor tensor, Func<Weight, Weight> map, Tensor destination)
@@ -74,7 +75,7 @@ public static class TensorHelper
     }
     public static void MapToFirst(this (Tensor a, Tensor b) tensors, Func<Weight, Weight, Weight> map)
         => SpanOperations.MapTo(tensors.a.AsSpan(), tensors.b.AsSpan(), tensors.a.AsSpan(), map);
-    
+
     [GenerateVariants]
     public static void AddTo(this Tensor left, Tensor right, Tensor destination)
     {
