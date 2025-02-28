@@ -62,15 +62,15 @@ public sealed class MethodVariantGenerator : DiagnosticAnalyzer, IIncrementalGen
                 sb.AppendLine($$"""
 
                 #region {{method.Name}}
-                public static void {{method.Name}}To({{string.Join(", ", parametersStrings)}})
+                public static void {{method.Name}}To(this {{string.Join(", ", parametersStrings)}})
                 {
                     System.Numerics.Tensors.TensorPrimitives.{{methodName}}({{string.Join(", ", method.Parameters.Select(p => p.Type is { Name: "Span" or "ReadOnlySpan", ContainingNamespace.Name: "System" } ? $"{p.Name}.AsSpan()" : p.Name))}});
                 }
-                public static void {{method.Name}}ToSelf({{(method.IsExtensionMethod ? "this " : "")}}{{string.Join(", ", parametersStrings.Take(method.Parameters.Length - 1))}})
+                public static void {{method.Name}}ToSelf(this {{string.Join(", ", parametersStrings.Take(method.Parameters.Length - 1))}})
                 {
                     {{method.Name}}To({{string.Join(", ", parameters.Select(p => p.Name))}}, {{method.Parameters[0].Name}});
                 }
-                public static {{tensorType}} {{method.Name}}({{(method.IsExtensionMethod ? "this " : "")}}{{string.Join(", ", parametersStrings.Take(method.Parameters.Length - 1))}})
+                public static {{tensorType}} {{method.Name}}(this {{string.Join(", ", parametersStrings.Take(method.Parameters.Length - 1))}})
                 {
                     var destination = {{tensorType}}.OfSize({{method.Parameters[0].Name}});
                     {{method.Name}}To({{string.Join(", ", parameters.Select(p => p.Name))}}, destination);
