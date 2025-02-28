@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
@@ -39,7 +40,7 @@ public sealed class MethodVariantGenerator : DiagnosticAnalyzer, IIncrementalGen
 
             var tensorType = attribute.AttributeClass!.TypeArguments[0];
 
-            var importFromTensorPrimitives = attribute.NamedArguments.First(p => p.Key is "GenerateFromTensorPrimitives").Value.Values.Select(v => v.Value).OfType<string>() ?? [];
+            var importFromTensorPrimitives = attribute.NamedArguments.FirstOrDefault(p => p.Key is "GenerateFromTensorPrimitives") is { Key: not null } kp ? kp.Value.Values.Select(v => v.Value).OfType<string>() ?? [] : [];
 
             var sb = new StringBuilder();
 

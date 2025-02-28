@@ -108,8 +108,13 @@ internal readonly struct TensorLayerReference(int layerIndex, Tensor tensor) : M
     //}
 }
 
-
-public static class MatrixHelper
+[NumericsHelper<Matrix>(
+    GenerateFromTensorPrimitives = [
+        nameof(TensorPrimitives.Add),
+        nameof(TensorPrimitives.Subtract)
+    ]
+)]
+public static partial class MatrixHelper
 {
     public static Weight Sum(this Matrix matrix) => TensorPrimitives.Sum<Weight>(matrix.AsSpan());
     public static Weight Max(this Matrix matrix) => TensorPrimitives.Max<Weight>(matrix.AsSpan());
@@ -215,13 +220,7 @@ public static class MatrixHelper
         vector.MultiplyTo(matrix, destination);
     }
 
-    public static void MapToSelf(this Matrix matrix, Func<Weight, Weight> map) => matrix.MapTo(map, matrix);
-    public static Matrix Map(this Matrix matrix, Func<Weight, Weight> map)
-    {
-        var destination = Matrix.Create(matrix.RowCount, matrix.ColumnCount);
-        matrix.MapTo(map, destination);
-        return destination;
-    }
+    [GenerateVariants]
     public static void MapTo(this Matrix matrix, Func<Weight, Weight> map, Matrix destination)
     {
         NumericsDebug.AssertSameDimensions(matrix, destination);
@@ -252,60 +251,14 @@ public static class MatrixHelper
         SpanOperations.MapTo(matrices.a.AsSpan(), matrices.b.AsSpan(), matrices.c.AsSpan(), destination.AsSpan(), map);
     }
 
-    public static void AddToSelf(this Matrix left, Matrix right)
-    {
-        AddTo(left, right, left);
-    }
-    public static Matrix Add(this Matrix left, Matrix right)
-    {
-        var destination = Matrix.Create(left.RowCount, left.ColumnCount);
-        AddTo(left, right, destination);
-        return destination;
-    }
-
-    public static void AddTo(this Matrix left, Matrix right, Matrix destination)
-    {
-        NumericsDebug.AssertSameDimensions(left, right, destination);
-        TensorPrimitives.Add(left.AsSpan(), right.AsSpan(), destination.AsSpan());
-    }
-
-    public static void SubtractToSelf(this Matrix left, Matrix right)
-    {
-        SubtractTo(left, right, left);
-    }
-    public static Matrix Subtract(this Matrix left, Matrix right)
-    {
-        var destination = Matrix.Create(left.RowCount, left.ColumnCount);
-        SubtractTo(left, right, destination);
-        return destination;
-    }
-
-    public static void SubtractTo(this Matrix left, Matrix right, Matrix destination)
-    {
-        NumericsDebug.AssertSameDimensions(left, right, destination);
-        TensorPrimitives.Subtract(left.AsSpan(), right.AsSpan(), destination.AsSpan());
-    }
-
-    public static void MultiplyToSelf(this Matrix vector, Weight factor) => MultiplyTo(vector, factor, vector);
-    public static Matrix Multiply(this Matrix vector, Weight factor)
-    {
-        var destination = Matrix.Create(vector.RowCount, vector.ColumnCount);
-        MultiplyTo(vector, factor, destination);
-        return destination;
-    }
+    [GenerateVariants]
     public static void MultiplyTo(this Matrix vector, Weight factor, Matrix destination)
     {
         NumericsDebug.AssertSameDimensions(vector, destination);
         TensorPrimitives.Multiply(vector.AsSpan(), factor, destination.AsSpan());
     }
 
-    public static void DivideToSelf(this Matrix vector, Weight divisor) => DivideTo(vector, divisor, vector);
-    public static Matrix Divide(this Matrix vector, Weight divisor)
-    {
-        var destination = Matrix.Create(vector.RowCount, vector.ColumnCount);
-        DivideTo(vector, divisor, destination);
-        return destination;
-    }
+    [GenerateVariants]
     public static void DivideTo(this Matrix vector, Weight divisor, Matrix destination)
     {
         MultiplyTo(vector, 1 / divisor, destination);

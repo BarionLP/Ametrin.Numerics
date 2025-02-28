@@ -11,7 +11,6 @@ public interface Tensor
     public Vector Storage { get; }
 
     public Span<Weight> AsSpan();
-    //public Vector RowRef(int rowIndex);
 
     public static Tensor CreateCube(int size) => Create(size, size, size);
     public static Tensor Create(int rowCount, int columnCount, int layerCount) => new TensorFlat(rowCount, columnCount, layerCount, Vector.Create(rowCount * columnCount * layerCount));
@@ -34,7 +33,6 @@ public readonly struct TensorFlat(int rowCount, int columnCount, int layerCount,
     public ref Weight this[int row, int column, int layer] => ref Storage[GetFlatIndex(row, column, layer)];
     public ref Weight this[nuint flatIndex] => ref Storage[flatIndex];
 
-
     public int RowCount { get; } = rowCount;
     public int ColumnCount { get; } = columnCount;
     public int LayerCount { get; } = layerCount;
@@ -49,8 +47,11 @@ public readonly struct TensorFlat(int rowCount, int columnCount, int layerCount,
     {
 #if DEBUG
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(row, RowCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(row);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(column, ColumnCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(column);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(layer, LayerCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(layer);
 #endif
 
         return layer * RowCount * ColumnCount + row * ColumnCount + column;
@@ -59,14 +60,7 @@ public readonly struct TensorFlat(int rowCount, int columnCount, int layerCount,
 
 public static class TensorHelper
 {
-
-    public static void MapToSelf(this Tensor tensor, Func<Weight, Weight> map) => MapTo(tensor, map, tensor);
-    public static Tensor Map(this Tensor tensor, Func<Weight, Weight> map)
-    {
-        var destination = Tensor.OfSize(tensor);
-        tensor.MapTo(map, destination);
-        return destination;
-    }
+    [GenerateVariants]
     public static void MapTo(this Tensor tensor, Func<Weight, Weight> map, Tensor destination)
     {
         NumericsDebug.AssertSameDimensions(tensor, destination);
@@ -80,60 +74,27 @@ public static class TensorHelper
     }
     public static void MapToFirst(this (Tensor a, Tensor b) tensors, Func<Weight, Weight, Weight> map)
         => SpanOperations.MapTo(tensors.a.AsSpan(), tensors.b.AsSpan(), tensors.a.AsSpan(), map);
-    public static void AddToSelf(this Tensor left, Tensor right)
-    {
-        NumericsDebug.AssertSameDimensions(left, right);
-        AddUnsafe(left, right, left);
-    }
-    public static Tensor Add(this Tensor left, Tensor right)
-    {
-        NumericsDebug.AssertSameDimensions(left, right);
-        var destination = Tensor.OfSize(left);
-        AddUnsafe(left, right, destination);
-        return destination;
-    }
-    public static void Add(this Tensor left, Tensor right, Tensor destination)
+    
+    [GenerateVariants]
+    public static void AddTo(this Tensor left, Tensor right, Tensor destination)
     {
         NumericsDebug.AssertSameDimensions(left, right, destination);
-        AddUnsafe(left, right, destination);
+        TensorPrimitives.Add(left.AsSpan(), right.AsSpan(), destination.AsSpan());
     }
-    private static void AddUnsafe(Tensor left, Tensor right, Tensor destination) => TensorPrimitives.Add(left.AsSpan(), right.AsSpan(), destination.AsSpan());
 
-    public static void PointwiseMultiplyToSelf(this Tensor left, Tensor right)
-    {
-        NumericsDebug.AssertSameDimensions(left, right);
-        PointwiseMultiplyUnsafe(left, right, left);
-    }
-    public static Tensor PointwiseMultiply(this Tensor left, Tensor right)
-    {
-        NumericsDebug.AssertSameDimensions(left, right);
-        var destination = Tensor.OfSize(left);
-        PointwiseMultiplyUnsafe(left, right, destination);
-        return destination;
-    }
+    [GenerateVariants]
     public static void PointwiseMultiplyTo(this Tensor left, Tensor right, Tensor destination)
     {
         NumericsDebug.AssertSameDimensions(left, right, destination);
-        PointwiseMultiplyUnsafe(left, right, destination);
+        TensorPrimitives.Multiply(left.AsSpan(), right.AsSpan(), destination.AsSpan());
     }
 
-    public static void SubtractToSelf(this Tensor left, Tensor right)
-    {
-        SubtractTo(left, right, left);
-    }
-    public static Tensor Subtract(this Tensor left, Tensor right)
-    {
-        var destination = Tensor.OfSize(left);
-        SubtractTo(left, right, destination);
-        return destination;
-    }
-
+    [GenerateVariants]
     public static void SubtractTo(this Tensor left, Tensor right, Tensor destination)
     {
         NumericsDebug.AssertSameDimensions(left, right, destination);
         TensorPrimitives.Subtract(left.AsSpan(), right.AsSpan(), destination.AsSpan());
     }
-    private static void PointwiseMultiplyUnsafe(Tensor left, Tensor right, Tensor destination) => TensorPrimitives.Multiply(left.AsSpan(), right.AsSpan(), destination.AsSpan());
 
     public static Matrix LayerRef(this Tensor tensor, int layer) => new TensorLayerReference(layer, tensor);
 
@@ -150,5 +111,6 @@ public static class TensorHelper
         tensor.AsSpan().CopyTo(destination.AsSpan());
     }
 
+    public static void Fill(this Tensor tensor, Weight value) => tensor.AsSpan().Fill(value);
     public static void ResetZero(this Tensor tensor) => tensor.AsSpan().Clear();
 }
