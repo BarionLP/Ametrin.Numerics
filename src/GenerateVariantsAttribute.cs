@@ -4,4 +4,7 @@
 internal sealed class GenerateVariantsAttribute : Attribute;
 
 [AttributeUsage(AttributeTargets.Class)]
-internal sealed class NumericsHelperAttribute<T> : Attribute;
+internal sealed class NumericsHelperAttribute<T> : Attribute
+{
+    public string[] GenerateFromTensorPrimitives { get; init; } = [];
+}

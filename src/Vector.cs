@@ -63,7 +63,7 @@ internal readonly struct VectorSlice(Vector _source, int start, int length) : Ve
     }
 }
 
-[NumericsHelper<Vector>]
+[NumericsHelper<Vector>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]
 public static partial class VectorHelper
 {
     public static Weight Sum(this Vector vector) => TensorPrimitives.Sum(vector.AsSpan());
@@ -99,9 +99,8 @@ public static partial class VectorHelper
         var sum = destination.Sum();
         destination.DivideToSelf(sum);
 
-
         // was slower in .net 9.preview.7
-        //TensorPrimitives.SoftMax(vector.AsSpan(), destination.AsSpan());
+        // TensorPrimitives.SoftMax(vector.AsSpan(), destination.AsSpan());
         NumericsDebug.AssertValidNumbers(destination);
     }
 
@@ -299,30 +298,10 @@ public static partial class VectorHelper
     }
 
     [GenerateVariants]
-    public static void AddTo(this Vector left, Vector right, Vector destination)
-    {
-        NumericsDebug.AssertSameDimensions(left, right, destination);
-        TensorPrimitives.Add(left.AsSpan(), right.AsSpan(), destination.AsSpan());
-    }
-
-    [GenerateVariants]
     public static void SubtractPointwiseTo(this Vector left, Weight right, Vector destination)
     {
         NumericsDebug.AssertSameDimensions(left, destination);
         TensorPrimitives.Subtract(left.AsSpan(), right, destination.AsSpan());
-    }
-
-    public static void SubtractToSelf(this Vector left, Vector right) => SubtractTo(left, right, left);
-    public static Vector Subtract(this Vector left, Vector right)
-    {
-        var destination = Vector.Create(left.Count);
-        SubtractTo(left, right, destination);
-        return destination;
-    }
-    public static void SubtractTo(this Vector left, Vector right, Vector destination)
-    {
-        NumericsDebug.AssertSameDimensions(left, right, destination);
-        TensorPrimitives.Subtract(left.AsSpan(), right.AsSpan(), destination.AsSpan());
     }
 
     public static int MaximumIndex(this Vector vector)
