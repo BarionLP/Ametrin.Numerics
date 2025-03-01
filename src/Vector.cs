@@ -67,6 +67,7 @@ internal readonly struct VectorSlice(Vector _source, int start, int length) : Ve
 public static partial class VectorHelper
 {
     public static Weight Sum(this Vector vector) => TensorPrimitives.Sum(vector.AsSpan());
+    public static Weight Magnitude(this Vector vector) => Weight.Sqrt(TensorPrimitives.SumOfSquares(vector.AsSpan()));
 
     public static Weight Dot(this Vector left, Vector right)
     {
