@@ -97,7 +97,7 @@ public static partial class TensorHelper
         TensorPrimitives.Subtract(left.AsSpan(), right.AsSpan(), destination.AsSpan());
     }
 
-    public static Matrix LayerRef(this Tensor tensor, int layer) => new TensorLayerReference(layer, tensor);
+    public static Matrix LayerRef(this Tensor tensor, int layer) => Matrix.Of(tensor.RowCount, tensor.ColumnCount, tensor.Storage.Slice(layer * tensor.RowCount * tensor.ColumnCount, tensor.RowCount * tensor.ColumnCount));
 
     public static Tensor CreateCopy(this Tensor tensor)
     {

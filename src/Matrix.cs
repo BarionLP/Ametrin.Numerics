@@ -266,6 +266,11 @@ public static partial class MatrixHelper
 
     public static Span<Weight> RowSpan(this Matrix matrix, int rowIndex) => matrix.AsSpan().Slice(rowIndex * matrix.ColumnCount, matrix.ColumnCount);
     public static Vector RowRef(this Matrix matrix, int rowIndex) => new VectorSlice(matrix.Storage, matrix.ColumnCount * rowIndex, matrix.ColumnCount);
+    public static Matrix Rows(this Matrix matrix, Range range)
+    {
+        var (offset, length) = range.GetOffsetAndLength(matrix.RowCount);
+        return Matrix.Of(length, matrix.ColumnCount, matrix.Storage.Slice(offset * matrix.ColumnCount, length * matrix.ColumnCount));
+    }
 
     public static Matrix CreateCopy(this Matrix matrix)
     {
@@ -275,7 +280,8 @@ public static partial class MatrixHelper
     }
     public static void CopyTo(this Matrix matrix, Matrix destination)
     {
-        NumericsDebug.AssertSameDimensions(matrix, destination);
+        Debug.Assert(matrix.ColumnCount == destination.ColumnCount);
+        Debug.Assert(matrix.RowCount <= destination.RowCount);
         matrix.AsSpan().CopyTo(destination.AsSpan());
     }
 
