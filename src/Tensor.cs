@@ -61,6 +61,8 @@ public readonly struct TensorFlat(int rowCount, int columnCount, int layerCount,
 [NumericsHelper<Tensor>]
 public static partial class TensorHelper
 {
+    public static Weight MaxMagnitude(this Tensor vector) => TensorPrimitives.MaxMagnitude(vector.AsSpan());
+
     [GenerateVariants]
     public static void MapTo(this Tensor tensor, Func<Weight, Weight> map, Tensor destination)
     {

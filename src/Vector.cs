@@ -69,6 +69,8 @@ public static partial class VectorHelper
     public static Weight Sum(this Vector vector) => TensorPrimitives.Sum(vector.AsSpan());
     public static Weight Magnitude(this Vector vector) => Weight.Sqrt(TensorPrimitives.SumOfSquares(vector.AsSpan()));
 
+    public static Weight MaxMagnitude(this Vector vector) => TensorPrimitives.MaxMagnitude(vector.AsSpan()); 
+
     public static Weight Dot(this Vector left, Vector right)
     {
         NumericsDebug.AssertSameDimensions(left, right);
@@ -307,15 +309,16 @@ public static partial class VectorHelper
 
     public static int MaximumIndex(this Vector vector)
     {
-        var maxIndex = 0;
-        for (int i = 1; i < vector.Count; i++)
-        {
-            if (vector[i] > vector[maxIndex])
-            {
-                maxIndex = i;
-            }
-        }
-        return maxIndex;
+        return TensorPrimitives.IndexOfMax(vector.AsSpan());
+        // var maxIndex = 0;
+        // for (int i = 1; i < vector.Count; i++)
+        // {
+        //     if (vector[i] > vector[maxIndex])
+        //     {
+        //         maxIndex = i;
+        //     }
+        // }
+        // return maxIndex;
     }
 
     public static Weight Max(this Vector vector) => TensorPrimitives.Max(vector.AsSpan());

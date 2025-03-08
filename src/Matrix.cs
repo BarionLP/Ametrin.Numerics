@@ -119,6 +119,7 @@ public static partial class MatrixHelper
     public static Weight Sum(this Matrix matrix) => TensorPrimitives.Sum<Weight>(matrix.AsSpan());
     public static Weight Max(this Matrix matrix) => TensorPrimitives.Max<Weight>(matrix.AsSpan());
     public static Weight Min(this Matrix matrix) => TensorPrimitives.Min<Weight>(matrix.AsSpan());
+    public static Weight MaxMagnitude(this Matrix vector) => TensorPrimitives.MaxMagnitude(vector.AsSpan());
 
     public static Vector Multiply(this Matrix matrix, Vector vector)
     {
