@@ -270,6 +270,10 @@ public static partial class MatrixHelper
     public static Matrix Rows(this Matrix matrix, Range range)
     {
         var (offset, length) = range.GetOffsetAndLength(matrix.RowCount);
+        if (offset is 0 && length == matrix.RowCount)
+        {
+            return matrix;
+        }
         return Matrix.Of(length, matrix.ColumnCount, matrix.Storage.Slice(offset * matrix.ColumnCount, length * matrix.ColumnCount));
     }
 
