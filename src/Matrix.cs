@@ -266,7 +266,7 @@ public static partial class MatrixHelper
     }
 
     public static Span<Weight> RowSpan(this Matrix matrix, int rowIndex) => matrix.AsSpan().Slice(rowIndex * matrix.ColumnCount, matrix.ColumnCount);
-    public static Vector RowRef(this Matrix matrix, int rowIndex) => new VectorSlice(matrix.Storage, matrix.ColumnCount * rowIndex, matrix.ColumnCount);
+    public static Vector RowRef(this Matrix matrix, int rowIndex) => matrix.Storage.Slice(matrix.ColumnCount * rowIndex, matrix.ColumnCount);
     public static Matrix Rows(this Matrix matrix, Range range)
     {
         var (offset, length) = range.GetOffsetAndLength(matrix.RowCount);

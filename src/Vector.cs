@@ -5,49 +5,45 @@ namespace Ametrin.Numerics;
 
 public interface Vector
 {
-    public static readonly Vector Empty = new VectorSimple(0, []);
+    public static readonly Vector Empty = new VectorSlice([], 0, 0);
     public int Count { get; }
     public ref Weight this[int index] { get; }
     public ref Weight this[nuint index] { get; }
     public Vector Slice(int index, int count);
     public Span<Weight> AsSpan();
 
-    public static Vector Create(int size) => new VectorSimple(size, new Weight[size]);
-    public static Vector Of(Weight[] array) => new VectorSimple(array.Length, array);
+    public static Vector Create(int size) => new VectorSlice(new Weight[size], 0, size);
+    public static Vector Of(Weight[] array) => new VectorSlice(array, 0, array.Length);
     public static Vector Of(int size, Weight[] array)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, array.Length);
-        return new VectorSimple(size, array);
+        return new VectorSlice(array, 0, size);
     }
     public static Vector OfSize(Vector template) => Create(template.Count);
 }
 
-// stores its own count to allow longer arrays from ArrayPool as storage
-internal readonly struct VectorSimple(int count, Weight[] storage) : Vector
+internal readonly struct VectorSlice(Weight[] _source, int start, int count) : Vector
 {
-    internal readonly Weight[] _storage = storage;
-    public int Count { get; } = count;
-    public ref Weight this[int index] => ref _storage[index];
-    public ref Weight this[nuint index] => ref _storage[index];
-    public Vector Slice(int index, int count) => new VectorSlice(this, index, count); // has built-in bound checks
-    public Span<Weight> AsSpan() => new(_storage, 0, Count);
-    public override string ToString() => $"[{string.Join(' ', _storage.Select(d => d.ToString("+0.00;-0.00;+0.00")))}]";
-}
-
-internal readonly struct VectorSlice(Vector _source, int start, int length) : Vector
-{
-    private readonly int _startIndex = start >= 0 && start + length <= _source.Count ? start : throw new ArgumentOutOfRangeException(nameof(start), "slice is out of range");
-    private readonly Vector _source = _source;
+    private readonly int _startIndex = start >= 0 && start + count <= _source.Length ? start : throw new ArgumentOutOfRangeException(nameof(start), "slice is out of range");
+    private readonly Weight[] _source = _source;
 
     public ref Weight this[int index] => ref _source[_startIndex + index];
 
     public ref Weight this[nuint index] => ref _source[_startIndex + (int)index];
 
-    public Vector Slice(int index, int count) => new VectorSlice(this, _startIndex + index, count);
+    public Vector Slice(int index, int count)
+    {
+#if DEBUG
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(index + count, Count);
+#endif
+        return new VectorSlice(_source, _startIndex + index, count);
+    }
 
-    public int Count { get; } = length;
+    public int Count { get; } = count;
 
-    public Span<Weight> AsSpan() => _source.AsSpan().Slice(_startIndex, Count);
+    public Span<Weight> AsSpan() => _source.AsSpan(_startIndex, Count);
 
     public override string ToString()
     {
@@ -69,7 +65,7 @@ public static partial class VectorHelper
     public static Weight Sum(this Vector vector) => TensorPrimitives.Sum(vector.AsSpan());
     public static Weight Magnitude(this Vector vector) => Weight.Sqrt(TensorPrimitives.SumOfSquares(vector.AsSpan()));
 
-    public static Weight MaxMagnitude(this Vector vector) => TensorPrimitives.MaxMagnitude(vector.AsSpan()); 
+    public static Weight MaxMagnitude(this Vector vector) => TensorPrimitives.MaxMagnitude(vector.AsSpan());
 
     public static Weight Dot(this Vector left, Vector right)
     {
