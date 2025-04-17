@@ -104,6 +104,35 @@ public static partial class VectorHelper
     }
 
     [GenerateVariants]
+    public static void SwishTo(this Vector vector, Vector destination)
+    {
+        NumericsDebug.AssertSameDimensions(vector, destination);
+        ref var vectorPtr = ref MemoryMarshal.GetReference(vector.AsSpan());
+        ref var destinationPtr = ref MemoryMarshal.GetReference(destination.AsSpan());
+        var dataSize = (nuint)SimdVector.Count;
+        var totalSize = (nuint)vector.Count;
+
+        nuint index = 0;
+        for (; index + dataSize <= totalSize; index += dataSize)
+        {
+            var simdVector = SimdVectorHelper.LoadUnsafe(ref vectorPtr, index);
+            SimdVectorHelper.StoreUnsafe(simdVector / (SimdVector.One + SimdVectorHelper.Exp(-simdVector)), ref destinationPtr, index);
+        }
+
+        for (; index < totalSize; index++)
+        {
+            var x = vector[index];
+            destination[index] = x / (1f + MathF.Exp(-x));
+        }
+
+        // for (var i = 0; i < vector.Count; i++)
+        // {
+        //     var x = vector[i];
+        //     destination[i] = x / (1f + MathF.Exp(-x));
+        // }
+    }
+
+    [GenerateVariants]
     public static void MapTo(this Vector vector, Func<Weight, Weight> map, Vector destination)
     {
         NumericsDebug.AssertSameDimensions(vector, destination);
@@ -162,6 +191,12 @@ public static partial class VectorHelper
     {
         NumericsDebug.AssertSameDimensions(left, right, destination);
         TensorPrimitives.Multiply(left.AsSpan(), right.AsSpan(), destination.AsSpan());
+    }
+
+    public static void PointwiseMultiplyAddTo(this Vector left, Vector right, Vector destination)
+    {
+        NumericsDebug.AssertSameDimensions(left, right, destination);
+        TensorPrimitives.MultiplyAdd(left.AsSpan(), right.AsSpan(), destination.AsSpan(), destination.AsSpan());
     }
 
     public static Vector Multiply(this Vector vector, Matrix matrix)
