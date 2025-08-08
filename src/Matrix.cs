@@ -221,6 +221,11 @@ public static partial class MatrixHelper
         vector.MultiplyTo(matrix, destination);
     }
 
+    public static void MultiplyTransposedAddTo(this Matrix matrix, Vector vector, Vector destination)
+    {
+        vector.MultiplyAddTo(matrix, destination);
+    }
+
     [GenerateVariants]
     public static void MapTo(this Matrix matrix, Func<Weight, Weight> map, Matrix destination)
     {

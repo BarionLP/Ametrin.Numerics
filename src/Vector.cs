@@ -208,11 +208,14 @@ public static partial class VectorHelper
 
     public static void MultiplyTo(this Vector vector, Matrix matrix, Vector destination)
     {
+        destination.ResetZero();
+        MultiplyAddTo(vector, matrix, destination);
+    }
+    public static void MultiplyAddTo(this Vector vector, Matrix matrix, Vector destination)
+    {
         //Story time: swapping loops increased performance by 85 % because of increased cache hits (before simd impl)
         Debug.Assert(vector.Count == matrix.RowCount);
         Debug.Assert(destination.Count == matrix.ColumnCount);
-
-        destination.ResetZero();
 
         ref var matrixPtr = ref MemoryMarshal.GetReference(matrix.AsSpan());
         ref var resultPtr = ref MemoryMarshal.GetReference(destination.AsSpan());
