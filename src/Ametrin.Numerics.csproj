@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\generator\Ametrin.Numerics.Generator.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+    <ProjectReference Include="..\generator\Ametrin.Numerics.Generator.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Numerics.Tensors" Version="9.0.2"/>
+    <PackageReference Include="System.Numerics.Tensors" Version="9.0.8" />
   </ItemGroup>
 
 </Project>
