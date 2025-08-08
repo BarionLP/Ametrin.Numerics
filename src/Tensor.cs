@@ -99,6 +99,20 @@ public static partial class TensorHelper
         TensorPrimitives.Subtract(left.AsSpan(), right.AsSpan(), destination.AsSpan());
     }
 
+
+    [GenerateVariants]
+    public static void MultiplyTo(this Tensor vector, Weight factor, Tensor destination)
+    {
+        NumericsDebug.AssertSameDimensions(vector, destination);
+        TensorPrimitives.Multiply(vector.AsSpan(), factor, destination.AsSpan());
+    }
+
+    [GenerateVariants]
+    public static void DivideTo(this Tensor vector, Weight divisor, Tensor destination)
+    {
+        MultiplyTo(vector, 1 / divisor, destination);
+    }
+
     public static Matrix LayerRef(this Tensor tensor, int layer) => Matrix.Of(tensor.RowCount, tensor.ColumnCount, tensor.Storage.Slice(layer * tensor.RowCount * tensor.ColumnCount, tensor.RowCount * tensor.ColumnCount));
 
     public static Tensor CreateCopy(this Tensor tensor)
