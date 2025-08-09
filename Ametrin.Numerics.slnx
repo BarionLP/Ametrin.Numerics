@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="c:/Users/Nation/Documents/Coding/Packages/Ametrin.Numerics/generator/Ametrin.Numerics.Generator.csproj" />
-  <Project Path="c:/Users/Nation/Documents/Coding/Packages/Ametrin.Numerics/src/Ametrin.Numerics.csproj" />
-  <Project Path="c:/Users/Nation/Documents/Coding/Packages/Ametrin.Numerics/test/Ametrin.Numerics.Test.csproj" />
+  <Project Path="generator/Ametrin.Numerics.Generator.csproj" />
+  <Project Path="src/Ametrin.Numerics.csproj" />
+  <Project Path="test/Ametrin.Numerics.Test.csproj" />
 </Solution>
