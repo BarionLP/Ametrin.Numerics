@@ -104,6 +104,14 @@ public static partial class VectorHelper
     }
 
     [GenerateVariants]
+    public static void SigmoidTo(this Vector vector, Vector destination)
+    {
+        NumericsDebug.AssertSameDimensions(vector, destination);
+        TensorPrimitives.Sigmoid(vector.AsSpan(), destination.AsSpan());
+        NumericsDebug.AssertValidNumbers(destination);
+    }
+
+    [GenerateVariants]
     public static void SwishTo(this Vector vector, Vector destination)
     {
         NumericsDebug.AssertSameDimensions(vector, destination);
@@ -326,6 +334,13 @@ public static partial class VectorHelper
     {
         NumericsDebug.AssertSameDimensions(vector, destination);
         TensorPrimitives.Multiply(vector.AsSpan(), factor, destination.AsSpan());
+    }
+
+    [GenerateVariants]
+    public static void MultiplyAddTo(this Vector vector, Weight factor, Vector destination)
+    {
+        NumericsDebug.AssertSameDimensions(vector, destination);
+        TensorPrimitives.MultiplyAdd(vector.AsSpan(), factor, destination.AsSpan(), destination.AsSpan());
     }
 
     [GenerateVariants]
