@@ -130,14 +130,8 @@ public static partial class VectorHelper
         for (; index < totalSize; index++)
         {
             var x = vector[index];
-            destination[index] = x / (1f + MathF.Exp(-x));
+            destination[index] = x / (1f + Weight.Exp(-x));
         }
-
-        // for (var i = 0; i < vector.Count; i++)
-        // {
-        //     var x = vector[i];
-        //     destination[i] = x / (1f + MathF.Exp(-x));
-        // }
     }
 
     [GenerateVariants]
@@ -216,6 +210,7 @@ public static partial class VectorHelper
 
     public static void MultiplyTo(this Vector vector, Matrix matrix, Vector destination)
     {
+        // v*M is numerically equivalent to M^T*v 
         destination.ResetZero();
         MultiplyAddTo(vector, matrix, destination);
     }
@@ -231,7 +226,7 @@ public static partial class VectorHelper
         var rowCount = (nuint)matrix.RowCount;
         var columnCount = (nuint)matrix.ColumnCount;
 
-        // computes d[column] += v[row] * M[row, column] foreach row column pair 
+        // computes d[column] += v[row] * M[row, column] foreach cell 
         for (nuint row = 0; row < rowCount; row++)
         {
             var rowValue = new SimdVector(vector[row]);
