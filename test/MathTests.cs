@@ -5,7 +5,7 @@ public sealed class MathTests
     public async Task PointwiseMultiplyAdd()
     {
         var destination = Vector.Of([1, 1, 1, 1, 1, 1, 1, 1, 1]);
-        await Assert.That(destination.Count).IsEqualTo(2 * System.Numerics.Vector<float>.Count + 1);
+        await Assert.That(destination.Count).IsEqualTo(9);
 
         var left = Vector.Of([2, 2, 2, 2, 2, 2, 2, 2, 2]);
         var right = Vector.Of([2, 2, 2, 2, 2, 2, 2, 2, 2]);
