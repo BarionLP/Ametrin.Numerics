@@ -3,33 +3,13 @@ using System.Text;
 
 namespace Ametrin.Numerics;
 
-public interface Vector
+public readonly struct Vector(Memory<Weight> _source)
 {
-    public static readonly Vector Empty = new VectorSlice([], 0, 0);
-    public int Count { get; }
-    public ref Weight this[int index] { get; }
-    public ref Weight this[nuint index] { get; }
-    public Vector Slice(int index, int count);
-    public Span<Weight> AsSpan();
+    internal readonly Memory<Weight> source = _source;
 
-    public static Vector Create(int size) => new VectorSlice(new Weight[size], 0, size);
-    public static Vector Of(Weight[] array) => new VectorSlice(array, 0, array.Length);
-    public static Vector Of(int size, Weight[] array)
-    {
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(size, array.Length);
-        return new VectorSlice(array, 0, size);
-    }
-    public static Vector OfSize(Vector template) => Create(template.Count);
-}
+    public ref Weight this[int index] => ref source.Span[index];
 
-internal readonly struct VectorSlice(Weight[] _source, int start, int count) : Vector
-{
-    private readonly int _startIndex = start >= 0 && start + count <= _source.Length ? start : throw new ArgumentOutOfRangeException(nameof(start), "slice is out of range");
-    private readonly Weight[] _source = _source;
-
-    public ref Weight this[int index] => ref _source[_startIndex + index];
-
-    public ref Weight this[nuint index] => ref _source[_startIndex + (int)index];
+    public ref Weight this[nuint index] => ref source.Span[(int)index];
 
     public Vector Slice(int index, int count)
     {
@@ -38,12 +18,12 @@ internal readonly struct VectorSlice(Weight[] _source, int start, int count) : V
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(index + count, Count);
 #endif
-        return new VectorSlice(_source, _startIndex + index, count);
+        return new(source.Slice(index, count));
     }
 
-    public int Count { get; } = count;
+    public int Count => source.Length;
 
-    public Span<Weight> AsSpan() => _source.AsSpan(_startIndex, Count);
+    public Span<Weight> AsSpan() => source.Span;
 
     public override string ToString()
     {
@@ -57,6 +37,17 @@ internal readonly struct VectorSlice(Weight[] _source, int start, int count) : V
         builder.Append(']');
         return builder.ToString();
     }
+
+    public static readonly Vector Empty = new(default);
+    public static Vector Create(int size) => new(new Weight[size]);
+    public static Vector Of(Weight[] array) => new(array);
+    public static Vector Of(Memory<Weight> array) => new(array);
+    public static Vector Of(int size, Weight[] array)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(size, array.Length);
+        return new Vector(array.AsMemory(0, size));
+    }
+    public static Vector OfSize(Vector template) => Create(template.Count);
 }
 
 [NumericsHelper<Vector>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]

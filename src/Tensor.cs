@@ -1,34 +1,6 @@
 ﻿namespace Ametrin.Numerics;
 
-public interface Tensor
-{
-    public int RowCount { get; }
-    public int ColumnCount { get; }
-    public int LayerCount { get; }
-    public int FlatCount { get; }
-    public ref Weight this[int row, int column, int layer] { get; }
-    public ref Weight this[nuint flatIndex] { get; }
-    public Vector Storage { get; }
-
-    public Span<Weight> AsSpan();
-
-    public static Tensor CreateCube(int size) => Create(size, size, size);
-    public static Tensor Create(int rowCount, int columnCount, int layerCount) => new TensorFlat(rowCount, columnCount, layerCount, Vector.Create(rowCount * columnCount * layerCount));
-    public static Tensor Of(int rowCount, int columnCount, int layerCount, Weight[] storage) => Of(rowCount, columnCount, layerCount, Vector.Of(storage));
-    public static Tensor Of(int rowCount, int columnCount, int layerCount, Vector storage)
-    {
-        if (storage.Count != rowCount * columnCount * layerCount)
-        {
-            throw new ArgumentException("storage size does not match specified dimensions");
-        }
-
-        return new TensorFlat(rowCount, columnCount, layerCount, storage);
-    }
-
-    public static Tensor OfSize(Tensor template) => Create(template.RowCount, template.ColumnCount, template.LayerCount);
-}
-
-public readonly struct TensorFlat(int rowCount, int columnCount, int layerCount, Vector storage) : Tensor
+public readonly struct Tensor(int rowCount, int columnCount, int layerCount, Vector storage)
 {
     public ref Weight this[int row, int column, int layer] => ref Storage[GetFlatIndex(row, column, layer)];
     public ref Weight this[nuint flatIndex] => ref Storage[flatIndex];
@@ -56,6 +28,21 @@ public readonly struct TensorFlat(int rowCount, int columnCount, int layerCount,
 
         return layer * RowCount * ColumnCount + row * ColumnCount + column;
     }
+
+    public static Tensor CreateCube(int size) => Create(size, size, size);
+    public static Tensor Create(int rowCount, int columnCount, int layerCount) => new(rowCount, columnCount, layerCount, Vector.Create(rowCount * columnCount * layerCount));
+    public static Tensor Of(int rowCount, int columnCount, int layerCount, Memory<Weight> storage) => Of(rowCount, columnCount, layerCount, Vector.Of(storage));
+    public static Tensor Of(int rowCount, int columnCount, int layerCount, Vector storage)
+    {
+        if (storage.Count != rowCount * columnCount * layerCount)
+        {
+            throw new ArgumentException("storage size does not match specified dimensions");
+        }
+
+        return new(rowCount, columnCount, layerCount, storage);
+    }
+
+    public static Tensor OfSize(Tensor template) => Create(template.RowCount, template.ColumnCount, template.LayerCount);
 }
 
 [NumericsHelper<Tensor>]

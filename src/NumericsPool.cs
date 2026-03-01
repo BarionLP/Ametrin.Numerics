@@ -2,32 +2,82 @@
 
 // namespace Ametrin.Numerics;
 
-// public static class NumericsPool
+
+// public sealed class StorePool(ArrayPool<float>? pool = null) : IDisposable
 // {
-//     public static Vector RentVector(int size) => Vector.Of(size, ArrayPool<Weight>.Shared.Rent(size));
-//     public static Matrix RentMatrix(int rows, int columns) => Matrix.Of(rows, columns, ArrayPool<Weight>.Shared.Rent(rows * columns));
+//     private readonly ArrayPool<float> pool = pool ?? ArrayPool<float>.Shared;
+//     private readonly Stack<StoreHandle> handleCache = [];
 
-//     public static void Return(Vector vector)
+//     public StoreHandle Rent(int minLength)
 //     {
-//         if (vector is VectorSimple simple)
+//         var storage = pool.Rent(minLength);
+
+//         if (handleCache.TryPop(out var handle))
 //         {
-//             ArrayPool<Weight>.Shared.Return(simple._storage);
+//             handle.storage = storage;
+//             return handle;
 //         }
 //         else
 //         {
-//             throw new InvalidOperationException();
+//             return new(storage, this);
 //         }
 //     }
 
-//     public static void Return(Matrix vector)
+//     public void Return(StoreHandle handle)
 //     {
-//         if (vector is MatrixFlat simple)
-//         {
-//             Return(simple.Storage);
-//         }
-//         else
-//         {
-//             throw new InvalidOperationException();
-//         }
+//         Debug.Assert(handle.pool == this);
+//         Debug.Assert(handle.storage is not null);
+//         pool.Return(handle.storage);
+
+//         handle.storage = null;
 //     }
+
+//     public void Dispose()
+//     {
+//         handleCache.Clear();
+//     }
+// }
+
+// public sealed class StoreHandle(Weight[] storage, StorePool? pool = null) : IDisposable
+// {
+//     internal readonly StorePool? pool = pool;
+//     internal Weight[]? storage = storage is null ? throw new ArgumentNullException(nameof(storage)) : storage;
+//     public bool IsDisposed => storage is null;
+
+//     public ref Weight this[int index] => ref storage![index];
+
+//     public ref Weight this[nuint index] => ref storage![(int)index];
+
+//     public Span<Weight> AsSpan()
+//     {
+//         Debug.Assert(!IsDisposed);
+//         return storage;
+//     }
+
+//     public Span<Weight> AsSpan(Range range)
+//     {
+//         Debug.Assert(!IsDisposed);
+//         return storage.AsSpan(range);
+//     }
+
+//     public Memory<Weight> AsMemory() => storage.AsMemory();
+//     public Memory<Weight> AsMemory(Range range) => storage.AsMemory(range);
+
+
+//     public void Dispose()
+//     {
+//         pool?.Return(this);
+//         storage = null!;
+// #if DEBUG
+//         GC.SuppressFinalize(this);
+// #endif
+//     }
+
+// #if DEBUG
+//     ~StoreHandle()
+//     {
+//         if (pool is null) return;
+//         Console.WriteLine("not disposed handle");
+//     }
+// #endif
 // }

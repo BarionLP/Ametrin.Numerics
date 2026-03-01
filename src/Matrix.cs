@@ -4,39 +4,7 @@ using System.Text;
 namespace Ametrin.Numerics;
 
 // must be a row major continuous chunk of memory for current simd to work 
-public interface Matrix
-{
-    public static readonly Matrix Empty = new MatrixFlat(0, 0, Vector.Empty);
-
-    public int RowCount { get; }
-    public int ColumnCount { get; }
-    public int FlatCount { get; }
-    public ref Weight this[int row, int column] { get; }
-    public ref Weight this[nuint flatIndex] { get; }
-    public ref Weight this[int flatIndex] { get; }
-
-    public Vector Storage { get; }
-
-    public Span<Weight> AsSpan();
-
-    public static Matrix CreateSquare(int size) => Create(size, size);
-    public static Matrix Create(int rowCount, int columnCount) => new MatrixFlat(rowCount, columnCount, Vector.Create(rowCount * columnCount));
-    public static Matrix Of(int rowCount, int columnCount, Weight[] storage) => Of(rowCount, columnCount, Vector.Of(storage));
-    public static Matrix Of(int rowCount, int columnCount, Vector storage)
-    {
-        if (storage.Count != columnCount * rowCount)
-        {
-            throw new ArgumentException("storage size does not match specified dimensions");
-        }
-
-        return new MatrixFlat(rowCount, columnCount, storage);
-    }
-
-    public static Matrix OfSize(Matrix template) => Create(template.RowCount, template.ColumnCount);
-    public static Matrix OfSize(Matrix template, Vector storage) => Of(template.RowCount, template.ColumnCount, storage);
-}
-
-internal readonly struct MatrixFlat(int rowCount, int columnCount, Vector storage) : Matrix
+public readonly struct Matrix(int rowCount, int columnCount, Vector storage)
 {
     public Vector Storage { get; } = storage;
     public int RowCount { get; } = rowCount;
@@ -74,46 +42,26 @@ internal readonly struct MatrixFlat(int rowCount, int columnCount, Vector storag
 
         return row * ColumnCount + column;
     }
+
+    public static readonly Matrix Empty = new(0, 0, Vector.Empty);
+    public static Matrix CreateSquare(int size) => Create(size, size);
+    public static Matrix Create(int rowCount, int columnCount) => new(rowCount, columnCount, Vector.Create(rowCount * columnCount));
+    public static Matrix Of(int rowCount, int columnCount, Memory<Weight> storage) => Of(rowCount, columnCount, Vector.Of(storage));
+    public static Matrix Of(int rowCount, int columnCount, Vector storage)
+    {
+        if (storage.Count != columnCount * rowCount)
+        {
+            throw new ArgumentException("storage size does not match specified dimensions");
+        }
+
+        return new (rowCount, columnCount, storage);
+    }
+
+    public static Matrix OfSize(Matrix template) => Create(template.RowCount, template.ColumnCount);
+    public static Matrix OfSize(Matrix template, Vector storage) => Of(template.RowCount, template.ColumnCount, storage);
 }
 
-internal readonly struct TensorLayerReference(int layerIndex, Tensor tensor) : Matrix
-{
-    private readonly int _startIndex = tensor.RowCount * tensor.ColumnCount * layerIndex;
-    private readonly Tensor _tensor = tensor;
-    public Vector Storage => _tensor.Storage.Slice(_startIndex, FlatCount);
-
-    public int RowCount => _tensor.RowCount;
-    public int ColumnCount => _tensor.ColumnCount;
-    public int FlatCount => RowCount * ColumnCount;
-
-
-    public ref Weight this[int row, int column] => ref AsSpan()[row * ColumnCount + column];
-    public ref Weight this[nuint index] => ref AsSpan()[(int)index];
-    public ref Weight this[int index] => ref AsSpan()[index];
-
-    public Span<Weight> AsSpan() => _tensor.AsSpan().Slice(_startIndex, FlatCount);
-
-    //public override string ToString()
-    //{
-    //    var builder = new StringBuilder("[");
-    //    var data = AsSpan();
-    //    for(int i = 0; i < data.Length; i++)
-    //    {
-    //        if(i > 0)
-    //            builder.Append(' ');
-    //        builder.Append(data[i].ToString("F2"));
-    //    }
-    //    builder.Append(']');
-    //    return builder.ToString();
-    //}
-}
-
-[NumericsHelper<Matrix>(
-    GenerateFromTensorPrimitives = [
-        nameof(TensorPrimitives.Add),
-        nameof(TensorPrimitives.Subtract)
-    ]
-)]
+[NumericsHelper<Matrix>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]
 public static partial class MatrixHelper
 {
     public static Weight Sum(this Matrix matrix) => TensorPrimitives.Sum<Weight>(matrix.AsSpan());
