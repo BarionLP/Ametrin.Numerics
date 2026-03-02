@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="Ametrin.Numerics.Calc/Ametrin.Numerics.Calc.csproj" />
   <Project Path="generator/Ametrin.Numerics.Generator.csproj" />
   <Project Path="src/Ametrin.Numerics.csproj" />
   <Project Path="test/Ametrin.Numerics.Test.csproj" />
