@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Ametrin.Numerics;
@@ -22,6 +23,9 @@ public readonly struct Vector(Memory<Weight> _source)
     }
 
     public int Count => source.Length;
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public int FlatCount => Count;
+
 
     public Span<Weight> AsSpan() => source.Span;
 
