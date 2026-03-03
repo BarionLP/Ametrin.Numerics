@@ -32,7 +32,7 @@ public readonly struct Tensor(int rowCount, int columnCount, int layerCount, Vec
     public static Tensor Empty { get; }
     public static Tensor CreateCube(int size) => Create(size, size, size);
     public static Tensor Create(int rowCount, int columnCount, int layerCount) => new(rowCount, columnCount, layerCount, Vector.Create(rowCount * columnCount * layerCount));
-    public static Tensor Of(int rowCount, int columnCount, int layerCount, Memory<Weight> storage) => Of(rowCount, columnCount, layerCount, Vector.Of(storage));
+    public static Tensor Of(int rowCount, int columnCount, int layerCount, Weight[] storage) => Of(rowCount, columnCount, layerCount, Vector.Of(storage));
     public static Tensor Of(int rowCount, int columnCount, int layerCount, Vector storage)
     {
         if (storage.Count != rowCount * columnCount * layerCount)

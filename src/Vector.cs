@@ -4,13 +4,14 @@ using System.Text;
 
 namespace Ametrin.Numerics;
 
-public readonly struct Vector(Memory<Weight> _source) : ITensorLike<Vector>
+public readonly struct Vector(Weight[] source, int start, int count) : ITensorLike<Vector>
 {
-    internal readonly Memory<Weight> source = _source;
+    private readonly int startIndex = start >= 0 && start + count <= source.Length ? start : throw new ArgumentOutOfRangeException(nameof(start), "slice is out of range");
+    internal readonly Weight[] source = source;
 
-    public ref Weight this[int index] => ref source.Span[index];
+    public ref Weight this[int index] => ref source[startIndex + index];
 
-    public ref Weight this[nuint index] => ref source.Span[(int)index];
+    public ref Weight this[nuint index] => ref source[startIndex + (int)index];
 
     public Vector Slice(int index, int count)
     {
@@ -19,37 +20,36 @@ public readonly struct Vector(Memory<Weight> _source) : ITensorLike<Vector>
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(index + count, Count);
 #endif
-        return new(source.Slice(index, count));
+        return new(source, startIndex + start, count);
     }
 
-    public int Count => source.Length;
+    public int Count { get; } = count;
     [EditorBrowsable(EditorBrowsableState.Never)]
     public int FlatCount => Count;
 
 
-    public Span<Weight> AsSpan() => source.Span;
+    public Span<Weight> AsSpan() => source.AsSpan(startIndex, Count);
 
     public override string ToString()
     {
         var builder = new StringBuilder("[");
-        var data = AsSpan();
-        for (int i = 0; i < data.Length; i++)
+        var endIndex = startIndex + Count;
+        for (int i = startIndex; i < endIndex; i++)
         {
-            if (i > 0) builder.Append(' ');
-            builder.Append(data[i].ToString("+0.00;-0.00;+0.00"));
+            if (i > startIndex) builder.Append(' ');
+            builder.Append(source[i].ToString("+0.00;-0.00;+0.00"));
         }
         builder.Append(']');
         return builder.ToString();
     }
 
-    public static Vector Empty { get; } = new(default);
-    public static Vector Create(int size) => new(new Weight[size]);
-    public static Vector Of(Weight[] array) => new(array);
-    public static Vector Of(Memory<Weight> array) => new(array);
-    public static Vector Of(int size, Weight[] array)
+    public static Vector Empty { get; } = new([], 0, 0);
+    public static Vector Create(int size) => new(new Weight[size], 0, size);
+    public static Vector Of(Weight[] array) => new(array, 0, array.Length);
+    public static Vector Of(Weight[] array, int size)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, array.Length);
-        return new Vector(array.AsMemory(0, size));
+        return new Vector(array, 0, size);
     }
     public static Vector OfSize(Vector template) => Create(template.Count);
 }
