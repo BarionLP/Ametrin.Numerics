@@ -1,6 +1,6 @@
 ﻿namespace Ametrin.Numerics;
 
-public readonly struct Tensor(int rowCount, int columnCount, int layerCount, Vector storage)
+public readonly struct Tensor(int rowCount, int columnCount, int layerCount, Vector storage) : ITensorLike<Tensor>
 {
     public ref Weight this[int row, int column, int layer] => ref Storage[GetFlatIndex(row, column, layer)];
     public ref Weight this[nuint flatIndex] => ref Storage[flatIndex];
@@ -29,6 +29,7 @@ public readonly struct Tensor(int rowCount, int columnCount, int layerCount, Vec
         return layer * RowCount * ColumnCount + row * ColumnCount + column;
     }
 
+    public static Tensor Empty { get; }
     public static Tensor CreateCube(int size) => Create(size, size, size);
     public static Tensor Create(int rowCount, int columnCount, int layerCount) => new(rowCount, columnCount, layerCount, Vector.Create(rowCount * columnCount * layerCount));
     public static Tensor Of(int rowCount, int columnCount, int layerCount, Memory<Weight> storage) => Of(rowCount, columnCount, layerCount, Vector.Of(storage));

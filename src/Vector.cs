@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Ametrin.Numerics;
 
-public readonly struct Vector(Memory<Weight> _source)
+public readonly struct Vector(Memory<Weight> _source) : ITensorLike<Vector>
 {
     internal readonly Memory<Weight> source = _source;
 
@@ -42,7 +42,7 @@ public readonly struct Vector(Memory<Weight> _source)
         return builder.ToString();
     }
 
-    public static readonly Vector Empty = new(default);
+    public static Vector Empty { get; } = new(default);
     public static Vector Create(int size) => new(new Weight[size]);
     public static Vector Of(Weight[] array) => new(array);
     public static Vector Of(Memory<Weight> array) => new(array);

@@ -4,7 +4,7 @@ using System.Text;
 namespace Ametrin.Numerics;
 
 // must be a row major continuous chunk of memory for current simd to work 
-public readonly struct Matrix(int rowCount, int columnCount, Vector storage)
+public readonly struct Matrix(int rowCount, int columnCount, Vector storage) : ITensorLike<Matrix>
 {
     public Vector Storage { get; } = storage;
     public int RowCount { get; } = rowCount;
@@ -43,7 +43,7 @@ public readonly struct Matrix(int rowCount, int columnCount, Vector storage)
         return row * ColumnCount + column;
     }
 
-    public static readonly Matrix Empty = new(0, 0, Vector.Empty);
+    public static Matrix Empty { get; } // = new(0, 0, Vector.Empty);
     public static Matrix CreateSquare(int size) => Create(size, size);
     public static Matrix Create(int rowCount, int columnCount) => new(rowCount, columnCount, Vector.Create(rowCount * columnCount));
     public static Matrix Of(int rowCount, int columnCount, Memory<Weight> storage) => Of(rowCount, columnCount, Vector.Of(storage));
@@ -54,7 +54,7 @@ public readonly struct Matrix(int rowCount, int columnCount, Vector storage)
             throw new ArgumentException("storage size does not match specified dimensions");
         }
 
-        return new (rowCount, columnCount, storage);
+        return new(rowCount, columnCount, storage);
     }
 
     public static Matrix OfSize(Matrix template) => Create(template.RowCount, template.ColumnCount);
