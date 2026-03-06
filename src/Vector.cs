@@ -20,7 +20,7 @@ public readonly struct Vector(Weight[] source, int start, int count) : ITensorLi
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(index + count, Count);
 #endif
-        return new(source, startIndex + start, count);
+        return new(source, startIndex + index, count);
     }
 
     public int Count { get; } = count;
@@ -65,7 +65,7 @@ public static partial class VectorHelper
     public static Weight Dot(this Vector left, Vector right)
     {
         NumericsDebug.AssertSameDimensions(left, right);
-        return TensorPrimitives.Dot<Weight>(left.AsSpan(), right.AsSpan());
+        return TensorPrimitives.Dot(left.AsSpan(), right.AsSpan());
     }
 
     [GenerateVariants]
