@@ -93,8 +93,8 @@ public static partial class VectorHelper
         var sum = destination.Sum();
         destination.DivideToSelf(sum);
 
-        // was slower in .net 9.preview.7
-        // TensorPrimitives.SoftMax(vector.AsSpan(), destination.AsSpan());
+        // still minimally slower because it actually divides instead of multiply by 1/sum (.NET 10)
+        // TensorPrimitives.SoftMax(destination.AsSpan(), destination.AsSpan());
         NumericsDebug.AssertValidNumbers(destination);
     }
 
@@ -349,15 +349,6 @@ public static partial class VectorHelper
     public static int MaximumIndex(this Vector vector)
     {
         return TensorPrimitives.IndexOfMax(vector.AsSpan());
-        // var maxIndex = 0;
-        // for (int i = 1; i < vector.Count; i++)
-        // {
-        //     if (vector[i] > vector[maxIndex])
-        //     {
-        //         maxIndex = i;
-        //     }
-        // }
-        // return maxIndex;
     }
 
     public static Weight Max(this Vector vector) => TensorPrimitives.Max(vector.AsSpan());
