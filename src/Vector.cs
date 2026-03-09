@@ -4,34 +4,84 @@ using System.Text;
 
 namespace Ametrin.Numerics;
 
-public readonly struct Vector(Weight[] source, int start, int count) : ITensorLike<Vector>
+// Memory<Weight> exposes no direct ref accessor, only via Span
+public readonly struct Vector : ITensorLike<Vector>
 {
-    private readonly int startIndex = start >= 0 && start + count <= source.Length ? start : throw new ArgumentOutOfRangeException(nameof(start), "slice is out of range");
-    internal readonly Weight[] source = source;
+    private readonly int startIndex;
+    internal readonly Weight[] source;
 
-    public ref Weight this[int index] => ref source[startIndex + index];
+    private Vector(Weight[] source, int start, int count)
+    {
+#if DEBUG
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        ArgumentOutOfRangeException.ThrowIfNegative(start);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(checked(start + count), source.Length);
+#endif
+        startIndex = start;
+        this.source = source;
+        Count = count;
+    }
 
-    public ref Weight this[nuint index] => ref source[startIndex + (int)index];
+    public ref Weight this[int index]
+    {
+#if !DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        get
+        {
+            Debug.Assert(index < Count);
+            DebugThrowIfDisposed();
+            return ref source[startIndex + index];
+        }
+    }
+
+    public ref Weight this[nuint index]
+    {
+#if !DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        get
+        {
+            Debug.Assert(index < (nuint)Count);
+            DebugThrowIfDisposed();
+            return ref source[(nuint)startIndex + index];
+        }
+    }
+
+#if DEBUG
+    private readonly StorageHandle? owner { get; init; }
+#endif
 
     public Vector Slice(int index, int count)
     {
 #if DEBUG
+        DebugThrowIfDisposed();
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(index + count, Count);
 #endif
-        return new(source, startIndex + index, count);
+        return new(source, startIndex + index, count)
+        {
+#if DEBUG
+            owner = owner,
+#endif
+        };
     }
 
-    public int Count { get; } = count;
+    public int Count { get; }
     [EditorBrowsable(EditorBrowsableState.Never)]
     public int FlatCount => Count;
 
 
-    public Span<Weight> AsSpan() => source.AsSpan(startIndex, Count);
+    public Span<Weight> AsSpan()
+    {
+        DebugThrowIfDisposed();
+        return source.AsSpan(startIndex, Count);
+    }
 
     public override string ToString()
     {
+        DebugThrowIfDisposed();
         var builder = new StringBuilder("[");
         var endIndex = startIndex + Count;
         for (int i = startIndex; i < endIndex; i++)
@@ -43,6 +93,17 @@ public readonly struct Vector(Weight[] source, int start, int count) : ITensorLi
         return builder.ToString();
     }
 
+    [Conditional("DEBUG")]
+    private void DebugThrowIfDisposed()
+    {
+#if DEBUG
+        if (owner is not null)
+        {
+            ObjectDisposedException.ThrowIf(owner.IsDisposed, owner);
+        }
+#endif
+    }
+
     public static Vector Empty { get; } = new([], 0, 0);
     public static Vector Create(int size) => new(new Weight[size], 0, size);
     public static Vector Of(Weight[] array) => new(array, 0, array.Length);
@@ -50,6 +111,17 @@ public readonly struct Vector(Weight[] source, int start, int count) : ITensorLi
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, array.Length);
         return new Vector(array, 0, size);
+    }
+    public static Vector Of(StorageHandle handle, int size)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(size, handle.Length);
+        Debug.Assert(!handle.IsDisposed);
+        return new Vector(handle.storage, 0, size)
+        {
+#if DEBUG
+            owner = handle,
+#endif
+        };
     }
     public static Vector OfSize(Vector template) => Create(template.Count);
 }
@@ -140,22 +212,7 @@ public static partial class VectorHelper
     public static void MapTo(this Vector vector, Func<SimdVector, SimdVector> simdMap, Func<Weight, Weight> fallbackMap, Vector destination)
     {
         NumericsDebug.AssertSameDimensions(vector, destination);
-        ref var vectorPtr = ref MemoryMarshal.GetReference(vector.AsSpan());
-        ref var destinationPtr = ref MemoryMarshal.GetReference(destination.AsSpan());
-        var dataSize = (nuint)SimdVector.Count;
-        var totalSize = (nuint)vector.Count;
-
-        nuint index = 0;
-        for (; index + dataSize <= totalSize; index += dataSize)
-        {
-            var simdVector = SimdVectorHelper.LoadUnsafe(ref vectorPtr, index);
-            SimdVectorHelper.StoreUnsafe(simdMap.Invoke(simdVector), ref destinationPtr, index);
-        }
-
-        for (; index < totalSize; index++)
-        {
-            destination[index] = fallbackMap.Invoke(vector[index]);
-        }
+        SpanOperations.MapTo(vector.AsSpan(), destination.AsSpan(), simdMap, fallbackMap);
     }
 
     public static void MapToFirst(this (Vector a, Vector b) vectors, Func<Weight, Weight, Weight> map) => vectors.MapTo(map, vectors.a);
@@ -169,6 +226,18 @@ public static partial class VectorHelper
     {
         NumericsDebug.AssertSameDimensions(vectors.a, vectors.b, destination);
         SpanOperations.MapTo(vectors.a.AsSpan(), vectors.b.AsSpan(), destination.AsSpan(), map);
+    }
+    public static void MapToFirst(this (Vector a, Vector b) vectors, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map) => vectors.MapTo(simdMap, map, vectors.a);
+    public static Vector Map(this (Vector a, Vector b) vectors, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map)
+    {
+        var destination = Vector.Create(vectors.a.Count);
+        vectors.MapTo(simdMap, map, destination);
+        return destination;
+    }
+    public static void MapTo(this (Vector a, Vector b) vectors, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map, Vector destination)
+    {
+        NumericsDebug.AssertSameDimensions(vectors.a, vectors.b, destination);
+        SpanOperations.MapTo(vectors.a.AsSpan(), vectors.b.AsSpan(), destination.AsSpan(), simdMap, map);
     }
 
     public static Vector Map(this (Vector a, Vector b, Vector c) vectors, Func<Weight, Weight, Weight, Weight> map)

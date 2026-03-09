@@ -193,6 +193,19 @@ public static partial class MatrixHelper
         NumericsDebug.AssertSameDimensions(matrices.a, matrices.b, destination);
         SpanOperations.MapTo(matrices.a.AsSpan(), matrices.b.AsSpan(), destination.AsSpan(), map);
     }
+
+    public static void MapToFirst(this (Matrix a, Matrix b) matrices, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map) => matrices.MapTo(matrices.a, simdMap, map);
+    public static Matrix Map(this (Matrix a, Matrix b) matrices, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map)
+    {
+        var destination = Matrix.Create(matrices.a.RowCount, matrices.a.ColumnCount);
+        matrices.MapTo(destination, simdMap, map);
+        return destination;
+    }
+    public static void MapTo(this (Matrix a, Matrix b) matrices, Matrix destination, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map)
+    {
+        NumericsDebug.AssertSameDimensions(matrices.a, matrices.b, destination);
+        SpanOperations.MapTo(matrices.a.AsSpan(), matrices.b.AsSpan(), destination.AsSpan(), simdMap, map);
+    }
     public static Matrix Map(this (Matrix a, Matrix b, Matrix c) matrices, Func<Weight, Weight, Weight, Weight> map)
     {
         var destination = Matrix.OfSize(matrices.a);

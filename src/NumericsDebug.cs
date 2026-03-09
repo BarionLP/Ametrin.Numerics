@@ -2,31 +2,32 @@ namespace Ametrin.Numerics;
 
 public static class NumericsDebug
 {
+    const string SPAN_SIZE_MISMATCH = "Spans don't match in size";
     const string VECTOR_SIZE_MISMATCH = "Vectors don't match in size";
     const string MATRIX_DIMENSION_MISMATCH = "Matrices don't match in size";
     const string TENSOR_DIMENSION_MISMATCH = "Tensors don't match in size";
 
     [Conditional("DEBUG"), StackTraceHidden]
-    public static void AssertSameDimensions(Matrix a, Matrix b)
+    public static void AssertSameDimensions<T>(ReadOnlySpan<T> a, ReadOnlySpan<T> b)
     {
-        Debug.Assert(a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount, MATRIX_DIMENSION_MISMATCH);
+        Debug.Assert(a.Length == b.Length, SPAN_SIZE_MISMATCH);
     }
 
     [Conditional("DEBUG"), StackTraceHidden]
-    public static void AssertSameDimensions(Matrix a, Matrix b, Matrix c)
+    public static void AssertSameDimensions<T>(ReadOnlySpan<T> a, ReadOnlySpan<T> b, ReadOnlySpan<T> c)
     {
-        Debug.Assert(a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount &&
-                     a.RowCount == c.RowCount && a.ColumnCount == c.ColumnCount,
-                     MATRIX_DIMENSION_MISMATCH);
+        Debug.Assert(a.Length == b.Length &&
+                     a.Length == c.Length,
+                     SPAN_SIZE_MISMATCH);
     }
 
     [Conditional("DEBUG"), StackTraceHidden]
-    public static void AssertSameDimensions(Matrix a, Matrix b, Matrix c, Matrix d)
+    public static void AssertSameDimensions<T>(ReadOnlySpan<T> a, ReadOnlySpan<T> b, ReadOnlySpan<T> c, ReadOnlySpan<T> d)
     {
-        Debug.Assert(a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount &&
-                     a.RowCount == c.RowCount && a.ColumnCount == c.ColumnCount &&
-                     a.RowCount == d.RowCount && a.ColumnCount == d.ColumnCount,
-                     MATRIX_DIMENSION_MISMATCH);
+        Debug.Assert(a.Length == b.Length &&
+                     a.Length == c.Length &&
+                     a.Length == d.Length,
+                     SPAN_SIZE_MISMATCH);
     }
 
     [Conditional("DEBUG"), StackTraceHidden]
@@ -50,6 +51,29 @@ public static class NumericsDebug
                      a.Count == c.Count &&
                      a.Count == d.Count,
                      VECTOR_SIZE_MISMATCH);
+    }
+
+    [Conditional("DEBUG"), StackTraceHidden]
+    public static void AssertSameDimensions(Matrix a, Matrix b)
+    {
+        Debug.Assert(a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount, MATRIX_DIMENSION_MISMATCH);
+    }
+
+    [Conditional("DEBUG"), StackTraceHidden]
+    public static void AssertSameDimensions(Matrix a, Matrix b, Matrix c)
+    {
+        Debug.Assert(a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount &&
+                     a.RowCount == c.RowCount && a.ColumnCount == c.ColumnCount,
+                     MATRIX_DIMENSION_MISMATCH);
+    }
+
+    [Conditional("DEBUG"), StackTraceHidden]
+    public static void AssertSameDimensions(Matrix a, Matrix b, Matrix c, Matrix d)
+    {
+        Debug.Assert(a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount &&
+                     a.RowCount == c.RowCount && a.ColumnCount == c.ColumnCount &&
+                     a.RowCount == d.RowCount && a.ColumnCount == d.ColumnCount,
+                     MATRIX_DIMENSION_MISMATCH);
     }
 
     [Conditional("DEBUG"), StackTraceHidden]

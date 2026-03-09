@@ -1,4 +1,6 @@
-﻿namespace Ametrin.Numerics;
+﻿using System.Runtime.InteropServices;
+
+namespace Ametrin.Numerics;
 
 public static class SpanOperations
 {
@@ -27,6 +29,64 @@ public static class SpanOperations
         for (int i = 0; i < a.Length; i++)
         {
             destination[i] = map(a[i], b[i], c[i]);
+        }
+    }
+
+    public static void MapTo(ReadOnlySpan<Weight> values, Span<Weight> destination, Func<SimdVector, SimdVector> simdMap, Func<Weight, Weight> fallbackMap)
+    {
+        NumericsDebug.AssertSameDimensions(values, destination);
+        ref var vectorPtr = ref MemoryMarshal.GetReference(values);
+        ref var destinationPtr = ref MemoryMarshal.GetReference(destination);
+        var dataSize = (nuint)SimdVector.Count;
+        var totalSize = (nuint)values.Length;
+
+        nuint index = 0;
+        for (; index + dataSize <= totalSize; index += dataSize)
+        {
+            var simdVector = SimdVectorHelper.LoadUnsafe(ref vectorPtr, index);
+            SimdVectorHelper.StoreUnsafe(simdMap.Invoke(simdVector), ref destinationPtr, index);
+        }
+
+        // significantly slower :(
+        // if (index < totalSize)
+        // {
+        //     var remainingCount = (int)(totalSize - index);
+        //     Span<Weight> tmp = stackalloc Weight[SimdVector.Count];
+        //     ref var tmpPtr = ref MemoryMarshal.GetReference(tmp);
+
+        //     values[(int)index..].CopyTo(tmp);
+        //     var simdVector = SimdVectorHelper.LoadUnsafe(ref tmpPtr);
+
+        //     SimdVectorHelper.StoreUnsafe(simdMap.Invoke(simdVector), ref tmpPtr);
+        //     tmp[..remainingCount].CopyTo(destination[(int)index..]);
+        // }
+
+        for (; index < totalSize; index++)
+        {
+            destination[(int)index] = fallbackMap.Invoke(values[(int)index]);
+        }
+    }
+
+    public static void MapTo(ReadOnlySpan<Weight> left, ReadOnlySpan<Weight> right, Span<Weight> destination, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> fallbackMap)
+    {
+        NumericsDebug.AssertSameDimensions(left, right, destination);
+        ref var leftPtr = ref MemoryMarshal.GetReference(left);
+        ref var rightPtr = ref MemoryMarshal.GetReference(right);
+        ref var destinationPtr = ref MemoryMarshal.GetReference(destination);
+        var dataSize = (nuint)SimdVector.Count;
+        var totalSize = (nuint)left.Length;
+
+        nuint index = 0;
+        for (; index + dataSize <= totalSize; index += dataSize)
+        {
+            var leftVector = SimdVectorHelper.LoadUnsafe(ref leftPtr, index);
+            var rightVector = SimdVectorHelper.LoadUnsafe(ref rightPtr, index);
+            SimdVectorHelper.StoreUnsafe(simdMap.Invoke(leftVector, rightVector), ref destinationPtr, index);
+        }
+
+        for (; index < totalSize; index++)
+        {
+            destination[(int)index] = fallbackMap.Invoke(left[(int)index], right[(int)index]);
         }
     }
 }
