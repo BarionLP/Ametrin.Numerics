@@ -138,6 +138,38 @@ public static class SpanOperations
         }
     }
 
+    public static void MapTo<TOperator>(in TOperator state, ReadOnlySpan<Weight> first, ReadOnlySpan<Weight> second, ReadOnlySpan<Weight> third, Span<Weight> destination)
+        where TOperator : ITernaryOperator<TOperator>
+    {
+        NumericsDebug.AssertSameDimensions(first, second, third, destination);
+        ref var firstPtr = ref MemoryMarshal.GetReference(first);
+        ref var secondPtr = ref MemoryMarshal.GetReference(second);
+        ref var thirdPtr = ref MemoryMarshal.GetReference(third);
+        ref var destinationPtr = ref MemoryMarshal.GetReference(destination);
+        var dataSize = (nuint)SimdVector.Count;
+        var totalSize = (nuint)first.Length;
+
+        nuint index = 0;
+        for (; index + dataSize <= totalSize; index += dataSize)
+        {
+            var firstVector = SimdVectorHelper.LoadUnsafe(ref firstPtr, index);
+            var secondVector = SimdVectorHelper.LoadUnsafe(ref secondPtr, index);
+            var thirdVector = SimdVectorHelper.LoadUnsafe(ref thirdPtr, index);
+            SimdVectorHelper.StoreUnsafe(TOperator.Invoke(state, firstVector, secondVector, thirdVector), ref destinationPtr, index);
+        }
+
+        for (; index < totalSize; index++)
+        {
+            destination[(int)index] = TOperator.Invoke(state, first[(int)index], second[(int)index], third[(int)index]);
+        }
+    }
+
+}
+
+public interface IUnaryOperator<TState>
+{
+    static abstract Weight Invoke(in TState state, Weight value);
+    static abstract SimdVector Invoke(in TState state, SimdVector value);
 }
 
 public interface IBinaryOperator<TState>
@@ -146,8 +178,8 @@ public interface IBinaryOperator<TState>
     static abstract SimdVector Invoke(in TState state, SimdVector left, SimdVector right);
 }
 
-public interface IUnaryOperator<TState>
+public interface ITernaryOperator<TState>
 {
-    static abstract Weight Invoke(in TState state, Weight value);
-    static abstract SimdVector Invoke(in TState state, SimdVector value);
+    static abstract Weight Invoke(in TState state, Weight first, Weight second, Weight third);
+    static abstract SimdVector Invoke(in TState state, SimdVector first, SimdVector second, SimdVector third);
 }
