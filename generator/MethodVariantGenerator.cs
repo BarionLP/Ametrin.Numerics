@@ -55,7 +55,7 @@ public sealed class MethodVariantGenerator : DiagnosticAnalyzer, IIncrementalGen
 
             foreach (var methodName in importFromTensorPrimitives)
             {
-                var method = tp.GetMembers(methodName).OfType<IMethodSymbol>().Where(s => s is { IsStatic: true, DeclaredAccessibility: Accessibility.Public, IsGenericMethod: false }).First();
+                var method = tp.GetMembers(methodName).OfType<IMethodSymbol>().First(s => s is { IsStatic: true, DeclaredAccessibility: Accessibility.Public, IsGenericMethod: false });
                 var parameters = method.Parameters.Take(method.Parameters.Length - 1);
                 var parametersStrings = method.Parameters.Select(p => $"{(p.Type is { Name: "Span" or "ReadOnlySpan", ContainingNamespace.Name: "System" } ? tensorType : p.Type)} {p.Name}");
 
@@ -84,17 +84,20 @@ public sealed class MethodVariantGenerator : DiagnosticAnalyzer, IIncrementalGen
             {
                 var accessibility = method.DeclaredAccessibility;
                 var parameters = method.Parameters.Take(method.Parameters.Length - 1);
+                var generics = method.TypeParameters.Any() ? $"<{string.Join(", ", method.TypeParameters)}>" : "";
+                var genericConstrains = string.Join(" ", method.TypeParameters.Where(p => p.ConstraintTypes.Any()).Select(p => $"where {p} : {string.Join(", ", p.ConstraintTypes)}"));
+
                 sb.AppendLine($$"""
                 
                 #region {{method.Name}}
-                {{accessibility.ToString().ToLowerInvariant()}} {{(method.IsStatic ? "static" : "")}} void {{method.Name}}Self({{(method.IsExtensionMethod ? "this " : "")}}{{string.Join(", ", parameters)}})
+                {{accessibility.ToString().ToLowerInvariant()}} {{(method.IsStatic ? "static" : "")}} void {{method.Name}}Self{{generics}}({{(method.IsExtensionMethod ? "this " : "")}}{{string.Join(", ", parameters)}}) {{genericConstrains}}
                 {
-                    {{method.Name}}({{string.Join(", ", parameters.Select(p => p.Name))}}, {{method.Parameters[0].Name}});
+                    {{method.Name}}{{generics}}({{string.Join(", ", parameters.Select(p => p.Name))}}, {{method.Parameters[0].Name}});
                 }
-                {{accessibility.ToString().ToLowerInvariant()}} {{(method.IsStatic ? "static" : "")}} {{method.Parameters[0].Type}} {{method.Name.Substring(0, method.Name.Length - 2)}}({{(method.IsExtensionMethod ? "this " : "")}}{{string.Join(", ", parameters)}})
+                {{accessibility.ToString().ToLowerInvariant()}} {{(method.IsStatic ? "static" : "")}} {{method.Parameters[0].Type}} {{method.Name.Substring(0, method.Name.Length - 2)}}{{generics}}({{(method.IsExtensionMethod ? "this " : "")}}{{string.Join(", ", parameters)}})  {{genericConstrains}}
                 {
                     var destination = {{method.Parameters[0].Type}}.OfSize({{method.Parameters[0].Name}});
-                    {{method.Name}}({{string.Join(", ", parameters.Select(p => p.Name))}}, destination);
+                    {{method.Name}}{{generics}}({{string.Join(", ", parameters.Select(p => p.Name))}}, destination);
                     return destination;
                 }
                 #endregion
