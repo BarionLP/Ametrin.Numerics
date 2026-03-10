@@ -211,10 +211,11 @@ public static partial class VectorHelper
     }
 
     [GenerateVariants]
-    public static void MapTo(this Vector vector, Func<SimdVector, SimdVector> simdMap, Func<Weight, Weight> fallbackMap, Vector destination)
+    public static void MapTo<TOperator>(this Vector vector, in TOperator state, Vector destination)
+        where TOperator : IUnaryOperator<TOperator>
     {
         NumericsDebug.AssertSameDimensions(vector, destination);
-        SpanOperations.MapTo(vector.AsSpan(), destination.AsSpan(), simdMap, fallbackMap);
+        SpanOperations.MapTo(state, vector.AsSpan(), destination.AsSpan());
     }
 
     public static void MapToFirst(this (Vector a, Vector b) vectors, Func<Weight, Weight, Weight> map) => vectors.MapTo(map, vectors.a);
@@ -229,17 +230,19 @@ public static partial class VectorHelper
         NumericsDebug.AssertSameDimensions(vectors.a, vectors.b, destination);
         SpanOperations.MapTo(vectors.a.AsSpan(), vectors.b.AsSpan(), destination.AsSpan(), map);
     }
-    public static void MapToFirst(this (Vector a, Vector b) vectors, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map) => vectors.MapTo(simdMap, map, vectors.a);
-    public static Vector Map(this (Vector a, Vector b) vectors, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map)
+    public static void MapToFirst<TOperator>(this (Vector a, Vector b) vectors, in TOperator state) where TOperator : IBinaryOperator<TOperator> => vectors.MapTo<TOperator>(state, vectors.a);
+    public static Vector Map<TOperator>(this (Vector a, Vector b) vectors, in TOperator state)
+        where TOperator : IBinaryOperator<TOperator>
     {
         var destination = Vector.Create(vectors.a.Count);
-        vectors.MapTo(simdMap, map, destination);
+        vectors.MapTo(state, destination);
         return destination;
     }
-    public static void MapTo(this (Vector a, Vector b) vectors, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> map, Vector destination)
+    public static void MapTo<TOperator>(this (Vector a, Vector b) vectors, in TOperator state, Vector destination)
+        where TOperator : IBinaryOperator<TOperator>
     {
         NumericsDebug.AssertSameDimensions(vectors.a, vectors.b, destination);
-        SpanOperations.MapTo(vectors.a.AsSpan(), vectors.b.AsSpan(), destination.AsSpan(), simdMap, map);
+        SpanOperations.MapTo(state, vectors.a.AsSpan(), vectors.b.AsSpan(), destination.AsSpan());
     }
 
     public static Vector Map(this (Vector a, Vector b, Vector c) vectors, Func<Weight, Weight, Weight, Weight> map)
@@ -282,7 +285,7 @@ public static partial class VectorHelper
     }
     public static void MultiplyAddTo(this Vector vector, Matrix matrix, Vector destination)
     {
-        //Story time: swapping loops increased performance by 85 % because of increased cache hits (before simd impl)
+        // Story time: swapping loops increased performance by 85 % because of increased cache hits (before simd impl)
         Debug.Assert(vector.Count == matrix.RowCount);
         Debug.Assert(destination.Count == matrix.ColumnCount);
 
@@ -292,7 +295,7 @@ public static partial class VectorHelper
         var rowCount = (nuint)matrix.RowCount;
         var columnCount = (nuint)matrix.ColumnCount;
 
-        // computes d[column] += v[row] * M[row, column] foreach cell 
+        // computes d[column] += v[row] * M[row, column] for each cell 
         for (nuint row = 0; row < rowCount; row++)
         {
             var rowValue = new SimdVector(vector[row]);
@@ -438,6 +441,14 @@ public static partial class VectorHelper
         vector.AsSpan().CopyTo(destination.AsSpan());
     }
 
-    public static void Fill(this Vector vector, Weight value) => vector.AsSpan().Fill(value);
     public static void ResetZero(this Vector vector) => vector.AsSpan().Clear();
+    public static void Fill(this Vector vector, Weight value) => vector.AsSpan().Fill(value);
+    public static void Fill(this Vector vector, Func<Weight> factory)
+    {
+        var span = vector.AsSpan();
+        for (var i = 0; i < span.Length; i++)
+        {
+            span[i] = factory();
+        }
+    }
 }

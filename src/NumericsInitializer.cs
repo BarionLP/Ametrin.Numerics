@@ -8,7 +8,7 @@ public static class NumericsInitializer
 {
     public static void Uniform(this Vector v, Weight low, Weight high, Random random)
     {
-        v.MapToSelf(_ => low + (high - low) * random.NextSingle());
+        v.Fill(() => low + (high - low) * random.NextSingle());
     }
     public static void Uniform(this Matrix m, Weight low, Weight high, Random random)
     {
@@ -21,7 +21,7 @@ public static class NumericsInitializer
 
     public static void Normal(this Vector v, Weight mean, Weight std, Random random)
     {
-        v.MapToSelf(_ => mean + std * NextGaussian(random));
+        v.Fill(() => mean + std * NextGaussian(random));
     }
     public static void Normal(this Matrix m, Weight mean, Weight std, Random random)
     {
