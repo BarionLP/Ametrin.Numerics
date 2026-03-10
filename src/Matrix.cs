@@ -47,6 +47,7 @@ public readonly struct Matrix(int rowCount, int columnCount, Vector storage) : I
     public static Matrix CreateSquare(int size) => Create(size, size);
     public static Matrix Create(int rowCount, int columnCount) => new(rowCount, columnCount, Vector.Create(rowCount * columnCount));
     public static Matrix Of(int rowCount, int columnCount, Weight[] storage) => Of(rowCount, columnCount, Vector.Of(storage));
+    public static Matrix Of(int rowCount, int columnCount, StorageHandle handle) => Of(rowCount, columnCount, Vector.Of(handle, rowCount * columnCount));
     public static Matrix Of(int rowCount, int columnCount, Vector storage)
     {
         if (storage.Count != columnCount * rowCount)
@@ -59,6 +60,7 @@ public readonly struct Matrix(int rowCount, int columnCount, Vector storage) : I
 
     public static Matrix OfSize(Matrix template) => Create(template.RowCount, template.ColumnCount);
     public static Matrix OfSize(Matrix template, Vector storage) => Of(template.RowCount, template.ColumnCount, storage);
+    public static Matrix OfSize(Matrix template, StorageHandle handle) => Of(template.RowCount, template.ColumnCount, handle);
 }
 
 [NumericsHelper<Matrix>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]

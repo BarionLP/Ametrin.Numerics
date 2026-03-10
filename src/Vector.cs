@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Runtime.CompilerServices; // required in release
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -124,6 +125,7 @@ public readonly struct Vector : ITensorLike<Vector>
         };
     }
     public static Vector OfSize(Vector template) => Create(template.Count);
+    public static Vector OfSize(Vector template, StorageHandle handle) => Of(handle, template.Count);
 }
 
 [NumericsHelper<Vector>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]

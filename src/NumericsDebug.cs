@@ -91,6 +91,43 @@ public static class NumericsDebug
     }
 
     [Conditional("DEBUG"), StackTraceHidden]
+    public static void AssertSameDimensions<T1, T2>(T1 a, T2 b)
+        where T1 : ITensorLike<T1>
+        where T2 : ITensorLike<T2>
+    {
+        switch (a)
+        {
+            case Vector va:
+                if (b is Vector vb)
+                {
+                    AssertSameDimensions(va, vb);
+                    break;
+                }
+                goto default;
+
+            case Matrix ma:
+                if (b is Matrix mb)
+                {
+                    AssertSameDimensions(ma, mb);
+                    break;
+                }
+                goto default;
+
+            case Tensor ta:
+                if (b is Tensor tb)
+                {
+                    AssertSameDimensions(ta, tb);
+                    break;
+                }
+                goto default;
+
+            default:
+                Debug.Assert(false, "types don't match");
+                break;
+        }
+    }
+
+    [Conditional("DEBUG"), StackTraceHidden]
     public static void AssertValidNumbers(Vector vector)
     {
         AssertValidNumbers(vector.AsSpan(), "Vector contains invalid numbers");
@@ -105,7 +142,7 @@ public static class NumericsDebug
     [Conditional("DEBUG"), StackTraceHidden]
     public static void AssertValidNumbers(Tensor tensor)
     {
-        AssertValidNumbers(tensor.AsSpan(), "Matrix contains invalid numbers");
+        AssertValidNumbers(tensor.AsSpan(), "Tensor contains invalid numbers");
     }
 
     [Conditional("DEBUG"), StackTraceHidden]

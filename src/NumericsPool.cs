@@ -46,7 +46,7 @@ public sealed class StorageHandle(Weight[]? storage, ArrayPool<Weight> pool) : I
 
     public void Dispose()
     {
-        // set storage to null and return old storage atomically  
+        // set storage to null and return old storage atomically
         var local = Interlocked.Exchange(ref storage, null);
         if (local is null) return; // if local is null a different thread beat us to the disposal
 
