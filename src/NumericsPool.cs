@@ -65,11 +65,10 @@ public sealed class StorageHandle(Weight[]? storage, ArrayPool<Weight> pool) : I
 #endif
 }
 
-public struct DynamicVector(ArrayPool<Weight> pool) : IDisposable
+public class DynamicVector(ArrayPool<Weight> pool) : IDisposable
 {
     public DynamicVector() : this(ArrayPool<Weight>.Shared) { }
-    private readonly ArrayPool<Weight> pool = pool;
-    private StorageHandle handle = StorageHandle.Disposed;
+    private StorageHandle handle = new(null, pool);
     public Vector Vector { get; private set; } = Vector.Empty;
 
     public void SetCount(int newCount)
@@ -78,7 +77,7 @@ public struct DynamicVector(ArrayPool<Weight> pool) : IDisposable
         if (handle.IsDisposed || handle.Length < newCount)
         {
             Dispose();
-            handle = pool.RentNumerics(newCount);
+            handle = handle.pool.RentNumerics(newCount);
         }
 
         if (Vector.Count != newCount)
