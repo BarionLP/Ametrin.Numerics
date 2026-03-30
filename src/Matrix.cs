@@ -147,17 +147,81 @@ public static partial class MatrixHelper
         }
     }
 
-    public static void MultiplyRowwiseTo(this Matrix left, Matrix right, Matrix destination)
+    public static void MultiplyTo(this Matrix left, Matrix right, Matrix destination)
     {
+        Debug.Assert(left.ColumnCount == right.RowCount);
         Debug.Assert(left.RowCount == destination.RowCount);
+        Debug.Assert(right.ColumnCount == destination.ColumnCount);
 
-        for (int rowIndex = 0; rowIndex < left.RowCount; rowIndex++)
+        for (var leftRowIndex = 0; leftRowIndex < left.RowCount; leftRowIndex++)
         {
-            var row = left.RowRef(rowIndex);
-            var destinationRow = destination.RowRef(rowIndex);
-            right.MultiplyTo(row, destinationRow);
+            for (var rightColumnIndex = 0; rightColumnIndex < right.ColumnCount; rightColumnIndex++)
+            {
+                Weight sum = 0.0f;
+                for (var innerIndex = 0; innerIndex < left.ColumnCount; innerIndex++)
+                {
+                    sum += left[leftRowIndex, innerIndex] * right[innerIndex, rightColumnIndex];
+                }
+                destination[leftRowIndex, rightColumnIndex] = sum;
+            }
         }
     }
+
+    public static void TransposeLeftMultiplyAddTo(this Matrix left, Matrix right, Matrix destination)
+    {
+        Debug.Assert(left.RowCount == right.RowCount);
+        Debug.Assert(left.ColumnCount == destination.RowCount);
+        Debug.Assert(right.ColumnCount == destination.ColumnCount);
+
+        // iteration over columns which become rows through the transpose
+        for (var leftRowIndex = 0; leftRowIndex < left.ColumnCount; leftRowIndex++)
+        {
+            for (var rightColumnIndex = 0; rightColumnIndex < right.ColumnCount; rightColumnIndex++)
+            {
+                Weight sum = 0.0f;
+                for (var innerIndex = 0; innerIndex < left.RowCount; innerIndex++)
+                {
+                    sum += left[innerIndex, leftRowIndex] * right[innerIndex, rightColumnIndex];
+                }
+                destination[leftRowIndex, rightColumnIndex] += sum;
+            }
+        }
+    }
+
+    public static void TransposeRightMultiplyTo(this Matrix left, Matrix right, Matrix destination)
+    {
+        Debug.Assert(left.ColumnCount == right.ColumnCount);
+        Debug.Assert(left.RowCount == destination.RowCount);
+        Debug.Assert(right.RowCount == destination.ColumnCount);
+
+        for (var leftRowIndex = 0; leftRowIndex < left.RowCount; leftRowIndex++)
+        {
+            // iteration over rows which become columns through the transpose
+            for (var rightColumnIndex = 0; rightColumnIndex < right.RowCount; rightColumnIndex++)
+            {
+                Weight sum = 0.0f;
+                for (var innerIndex = 0; innerIndex < left.ColumnCount; innerIndex++)
+                {
+                    sum += left[leftRowIndex, innerIndex] * right[rightColumnIndex, innerIndex];
+                }
+
+                destination[leftRowIndex, rightColumnIndex] = sum;
+            }
+        }
+    }
+
+    // public static void MultiplyRowwiseTo(this Matrix left, Matrix right, Matrix destination)
+    // {
+    //     Debug.Assert(left.RowCount == destination.RowCount);
+
+    //     for (int rowIndex = 0; rowIndex < left.RowCount; rowIndex++)
+    //     {
+    //         var row = left.RowRef(rowIndex);
+    //         var destinationRow = destination.RowRef(rowIndex);
+    //         right.MultiplyTo(row, destinationRow);
+    //     }
+    // }
+
     public static Vector MultiplyTransposed(this Matrix matrix, Vector vector)
     {
         // see MultiplyTransposedTo
@@ -236,7 +300,7 @@ public static partial class MatrixHelper
     }
 
     public static Span<Weight> RowSpan(this Matrix matrix, int rowIndex) => matrix.AsSpan().Slice(rowIndex * matrix.ColumnCount, matrix.ColumnCount);
-    public static Vector RowRef(this Matrix matrix, int rowIndex) => matrix.Storage.Slice(matrix.ColumnCount * rowIndex, matrix.ColumnCount);
+    public static Vector RowRef(this Matrix matrix, Index rowIndex) => matrix.Storage.Slice(matrix.ColumnCount * rowIndex.GetOffset(matrix.RowCount), matrix.ColumnCount);
     public static Matrix Rows(this Matrix matrix, Range range)
     {
         var (offset, length) = range.GetOffsetAndLength(matrix.RowCount);

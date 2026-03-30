@@ -51,9 +51,7 @@ public sealed class StorageHandle(Weight[]? storage, ArrayPool<Weight> pool) : I
         if (local is null) return; // if local is null a different thread beat us to the disposal
 
         pool.Return(local);
-#if DEBUG
         GC.SuppressFinalize(this);
-#endif
     }
 
 #if DEBUG
@@ -65,7 +63,7 @@ public sealed class StorageHandle(Weight[]? storage, ArrayPool<Weight> pool) : I
 #endif
 }
 
-public class DynamicVector(ArrayPool<Weight> pool) : IDisposable
+public sealed class DynamicVector(ArrayPool<Weight> pool) : IDisposable
 {
     public DynamicVector() : this(ArrayPool<Weight>.Shared) { }
     private StorageHandle handle = new(null, pool);
