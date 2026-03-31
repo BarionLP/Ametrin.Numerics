@@ -153,16 +153,37 @@ public static partial class MatrixHelper
         Debug.Assert(left.RowCount == destination.RowCount);
         Debug.Assert(right.ColumnCount == destination.ColumnCount);
 
+        destination.ResetZero();
+
+        var dataSize = (nuint)SimdVector.Count;
+
         for (var leftRowIndex = 0; leftRowIndex < left.RowCount; leftRowIndex++)
         {
-            for (var rightColumnIndex = 0; rightColumnIndex < right.ColumnCount; rightColumnIndex++)
+            var leftRow = left.RowSpan(leftRowIndex);
+            var destinationRow = destination.RowSpan(leftRowIndex);
+            ref var destinationRowPtr = ref MemoryMarshal.GetReference(destinationRow);
+            for (var innerIndex = 0; innerIndex < leftRow.Length; innerIndex++)
             {
-                Weight sum = 0.0f;
-                for (var innerIndex = 0; innerIndex < left.ColumnCount; innerIndex++)
+                var rightRow = right.RowSpan(innerIndex);
+                ref var rightRowPtr = ref MemoryMarshal.GetReference(rightRow);
+                var leftValue = new SimdVector(leftRow[innerIndex]);
+
+                nuint rightColumnIndex = 0;
+
+                for (; rightColumnIndex + dataSize <= (nuint)rightRow.Length; rightColumnIndex += dataSize)
                 {
-                    sum += left[leftRowIndex, innerIndex] * right[innerIndex, rightColumnIndex];
+                    var rightVec = SimdVectorHelper.LoadUnsafe(ref rightRowPtr, rightColumnIndex);
+                    var destinationVec = SimdVectorHelper.LoadUnsafe(ref destinationRowPtr, rightColumnIndex);
+                    var result = (leftValue * rightVec) + destinationVec;
+
+                    SimdVectorHelper.StoreUnsafe(result, ref destinationRowPtr, rightColumnIndex);
                 }
-                destination[leftRowIndex, rightColumnIndex] = sum;
+
+                for (; rightColumnIndex < (nuint)rightRow.Length; rightColumnIndex++)
+                {
+                    destinationRow[(int)rightColumnIndex] += leftRow[innerIndex] * rightRow[(int)rightColumnIndex];
+                }
+
             }
         }
     }
@@ -173,17 +194,35 @@ public static partial class MatrixHelper
         Debug.Assert(left.ColumnCount == destination.RowCount);
         Debug.Assert(right.ColumnCount == destination.ColumnCount);
 
-        // iteration over columns which become rows through the transpose
-        for (var leftRowIndex = 0; leftRowIndex < left.ColumnCount; leftRowIndex++)
+        var dataSize = (nuint)SimdVector.Count;
+
+        for (var innerIndex = 0; innerIndex < left.RowCount; innerIndex++)
         {
-            for (var rightColumnIndex = 0; rightColumnIndex < right.ColumnCount; rightColumnIndex++)
+            // iteration over columns which become rows through the transpose
+            var leftColumn = left.RowSpan(innerIndex);
+            var rightRow = right.RowSpan(innerIndex);
+            ref var rightRowPtr = ref MemoryMarshal.GetReference(rightRow);
+            for (var leftRowIndex = 0; leftRowIndex < leftColumn.Length; leftRowIndex++)
             {
-                Weight sum = 0.0f;
-                for (var innerIndex = 0; innerIndex < left.RowCount; innerIndex++)
+                var leftValue = new SimdVector(leftColumn[leftRowIndex]);
+                var destinationRow = destination.RowSpan(leftRowIndex);
+                ref var destinationRowPtr = ref MemoryMarshal.GetReference(destinationRow);
+
+                nuint rightColumnIndex = 0;
+
+                for (; rightColumnIndex + dataSize <= (nuint)rightRow.Length; rightColumnIndex += dataSize)
                 {
-                    sum += left[innerIndex, leftRowIndex] * right[innerIndex, rightColumnIndex];
+                    var rightVec = SimdVectorHelper.LoadUnsafe(ref rightRowPtr, rightColumnIndex);
+                    var destinationVec = SimdVectorHelper.LoadUnsafe(ref destinationRowPtr, rightColumnIndex);
+                    var result = (leftValue * rightVec) + destinationVec;
+
+                    SimdVectorHelper.StoreUnsafe(result, ref destinationRowPtr, rightColumnIndex);
                 }
-                destination[leftRowIndex, rightColumnIndex] += sum;
+
+                for (; rightColumnIndex < (nuint)rightRow.Length; rightColumnIndex++)
+                {
+                    destinationRow[(int)rightColumnIndex] += leftColumn[leftRowIndex] * rightRow[(int)rightColumnIndex];
+                }
             }
         }
     }
@@ -196,16 +235,12 @@ public static partial class MatrixHelper
 
         for (var leftRowIndex = 0; leftRowIndex < left.RowCount; leftRowIndex++)
         {
+            var leftRow = left.RowSpan(leftRowIndex);
             // iteration over rows which become columns through the transpose
             for (var rightColumnIndex = 0; rightColumnIndex < right.RowCount; rightColumnIndex++)
             {
-                Weight sum = 0.0f;
-                for (var innerIndex = 0; innerIndex < left.ColumnCount; innerIndex++)
-                {
-                    sum += left[leftRowIndex, innerIndex] * right[rightColumnIndex, innerIndex];
-                }
-
-                destination[leftRowIndex, rightColumnIndex] = sum;
+                var rightColumn = right.RowSpan(rightColumnIndex);
+                destination[leftRowIndex, rightColumnIndex] = TensorPrimitives.Dot(leftRow, rightColumn);
             }
         }
     }
