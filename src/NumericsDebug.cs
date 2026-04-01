@@ -92,8 +92,8 @@ public static class NumericsDebug
 
     [Conditional("DEBUG"), StackTraceHidden]
     public static void AssertSameDimensions<T1, T2>(T1 a, T2 b)
-        where T1 : ITensorLike<T1>
-        where T2 : ITensorLike<T2>
+        where T1 : struct, ITensorLike<T1>
+        where T2 : struct, ITensorLike<T2>
     {
         switch (a)
         {

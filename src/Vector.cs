@@ -9,9 +9,10 @@ namespace Ametrin.Numerics;
 public readonly struct Vector : ITensorLike<Vector>
 {
     private readonly int startIndex;
-    internal readonly Weight[] source;
+    private readonly ArrayHandle source;
+    public int Count { get; }
 
-    private Vector(Weight[] source, int start, int count)
+    private Vector(ArrayHandle source, int start, int count)
     {
 #if DEBUG
         ArgumentOutOfRangeException.ThrowIfNegative(count);
@@ -31,8 +32,8 @@ public readonly struct Vector : ITensorLike<Vector>
         get
         {
             Debug.Assert(index < Count);
-            DebugThrowIfDisposed();
-            return ref source[startIndex + index];
+            Debug.Assert(!source.IsDisposed);
+            return ref source.Array[startIndex + index];
         }
     }
 
@@ -44,88 +45,61 @@ public readonly struct Vector : ITensorLike<Vector>
         get
         {
             Debug.Assert(index < (nuint)Count);
-            DebugThrowIfDisposed();
-            return ref source[(nuint)startIndex + index];
+            Debug.Assert(!source.IsDisposed);
+            return ref source.Array[(nuint)startIndex + index];
         }
     }
 
-#if DEBUG
-    private readonly StorageHandle? owner { get; init; }
-#endif
 
-    public Vector Slice(int index, int count)
+    public Vector Slice(int start, int count)
     {
 #if DEBUG
-        DebugThrowIfDisposed();
-        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        Debug.Assert(!source.IsDisposed);
+        ArgumentOutOfRangeException.ThrowIfNegative(start);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(index + count, Count);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(start + count, Count);
 #endif
-        return new(source, startIndex + index, count)
-        {
-#if DEBUG
-            owner = owner,
-#endif
-        };
+
+        return new(source, startIndex + start, count);
     }
 
-    public int Count { get; }
+
     [EditorBrowsable(EditorBrowsableState.Never)]
     public int FlatCount => Count;
 
 
-    public Span<Weight> AsSpan()
-    {
-        DebugThrowIfDisposed();
-        return source.AsSpan(startIndex, Count);
-    }
+    public Span<Weight> AsSpan() => source.AsSpan(startIndex, Count);
 
     public override string ToString()
     {
-        DebugThrowIfDisposed();
+        Debug.Assert(!source.IsDisposed);
         var builder = new StringBuilder("[");
         var endIndex = startIndex + Count;
         for (int i = startIndex; i < endIndex; i++)
         {
             if (i > startIndex) builder.Append(' ');
-            builder.Append(source[i].ToString("+0.00;-0.00;+0.00"));
+            builder.Append(source.Array[i].ToString("+0.00;-0.00;+0.00"));
         }
         builder.Append(']');
         return builder.ToString();
     }
 
-    [Conditional("DEBUG")]
-    private void DebugThrowIfDisposed()
-    {
-#if DEBUG
-        if (owner is not null)
-        {
-            ObjectDisposedException.ThrowIf(owner.IsDisposed, owner);
-        }
-#endif
-    }
-
-    public static Vector Empty { get; } = new([], 0, 0);
-    public static Vector Create(int size) => new(new Weight[size], 0, size);
-    public static Vector Of(Weight[] array) => new(array, 0, array.Length);
+    public static Vector Empty { get; } = new(new([], null), 0, 0);
+    public static Vector Create(int size) => new(new(new Weight[size], null), 0, size);
+    public static Vector Of(Weight[] array) => new(new(array, null), 0, array.Length);
     public static Vector Of(Weight[] array, int size)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, array.Length);
-        return new Vector(array, 0, size);
+        return new Vector(new(array, null), 0, size);
     }
-    public static Vector Of(StorageHandle handle, int size)
+    public static Vector Of(ArrayHandle handle, int size)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, handle.Length);
         Debug.Assert(!handle.IsDisposed);
-        return new Vector(handle.storage, 0, size)
-        {
-#if DEBUG
-            owner = handle,
-#endif
-        };
+        return new Vector(handle, 0, size);
     }
     public static Vector OfSize(Vector template) => Create(template.Count);
-    public static Vector OfSize(Vector template, StorageHandle handle) => Of(handle, template.Count);
+    public static Vector OfSize(Vector template, ArrayHandle handle) => Of(handle, template.Count);
 }
 
 [NumericsHelper<Vector>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]
@@ -410,6 +384,7 @@ public static partial class VectorHelper
     [GenerateVariants]
     public static void DivideTo(this Vector vector, Weight divisor, Vector destination)
     {
+        // TODO: caller should decide this because this is only good when vector and divisor are small
         MultiplyTo(vector, 1 / divisor, destination);
     }
 
