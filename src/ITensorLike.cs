@@ -1,6 +1,6 @@
 namespace Ametrin.Numerics;
 
-public interface ITensorLike<TSelf> where TSelf : ITensorLike<TSelf>
+public interface ITensorLike<TSelf> where TSelf : ITensorLike<TSelf>, allows ref struct
 {
     public int FlatCount { get; }
     public Span<Weight> AsSpan();

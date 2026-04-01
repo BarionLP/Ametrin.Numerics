@@ -32,54 +32,12 @@ public static class SpanOperations
         }
     }
 
-    [Obsolete]
-    public static void MapTo(ReadOnlySpan<Weight> values, Span<Weight> destination, Func<SimdVector, SimdVector> simdMap, Func<Weight, Weight> fallbackMap)
-    {
-        NumericsDebug.AssertSameDimensions(values, destination);
-        ref var vectorPtr = ref MemoryMarshal.GetReference(values);
-        ref var destinationPtr = ref MemoryMarshal.GetReference(destination);
-        var dataSize = (nuint)SimdVector.Count;
-        var totalSize = (nuint)values.Length;
-
-        nuint index = 0;
-        for (; index + dataSize <= totalSize; index += dataSize)
-        {
-            var simdVector = SimdVectorHelper.LoadUnsafe(ref vectorPtr, index);
-            SimdVectorHelper.StoreUnsafe(simdMap.Invoke(simdVector), ref destinationPtr, index);
-        }
-
-        for (; index < totalSize; index++)
-        {
-            destination[(int)index] = fallbackMap.Invoke(values[(int)index]);
-        }
-    }
-
-    [Obsolete]
-    public static void MapTo(ReadOnlySpan<Weight> left, ReadOnlySpan<Weight> right, Span<Weight> destination, Func<SimdVector, SimdVector, SimdVector> simdMap, Func<Weight, Weight, Weight> fallbackMap)
-    {
-        NumericsDebug.AssertSameDimensions(left, right, destination);
-        ref var leftPtr = ref MemoryMarshal.GetReference(left);
-        ref var rightPtr = ref MemoryMarshal.GetReference(right);
-        ref var destinationPtr = ref MemoryMarshal.GetReference(destination);
-        var dataSize = (nuint)SimdVector.Count;
-        var totalSize = (nuint)left.Length;
-
-        nuint index = 0;
-        for (; index + dataSize <= totalSize; index += dataSize)
-        {
-            var leftVector = SimdVectorHelper.LoadUnsafe(ref leftPtr, index);
-            var rightVector = SimdVectorHelper.LoadUnsafe(ref rightPtr, index);
-            SimdVectorHelper.StoreUnsafe(simdMap.Invoke(leftVector, rightVector), ref destinationPtr, index);
-        }
-
-        for (; index < totalSize; index++)
-        {
-            destination[(int)index] = fallbackMap.Invoke(left[(int)index], right[(int)index]);
-        }
-    }
-
     public static void MapTo<TOperator>(in TOperator state, ReadOnlySpan<Weight> values, Span<Weight> destination)
-        where TOperator : IUnaryOperator<TOperator>
+        where TOperator : IUnaryOperator<TOperator>, allows ref struct
+        => MapTo<TOperator, TOperator>(state, values, destination);
+    public static void MapTo<TOperator, TState>(in TState state, ReadOnlySpan<Weight> values, Span<Weight> destination)
+        where TOperator : IUnaryOperator<TState>, allows ref struct
+        where TState : allows ref struct
     {
         NumericsDebug.AssertSameDimensions(values, destination);
         ref var vectorPtr = ref MemoryMarshal.GetReference(values);
@@ -115,7 +73,12 @@ public static class SpanOperations
     }
 
     public static void MapTo<TOperator>(in TOperator state, ReadOnlySpan<Weight> left, ReadOnlySpan<Weight> right, Span<Weight> destination)
-        where TOperator : IBinaryOperator<TOperator>
+        where TOperator : IBinaryOperator<TOperator>, allows ref struct
+        => MapTo<TOperator, TOperator>(state, left, right, destination);
+
+    public static void MapTo<TOperator, TState>(in TState state, ReadOnlySpan<Weight> left, ReadOnlySpan<Weight> right, Span<Weight> destination)
+        where TOperator : IBinaryOperator<TState>, allows ref struct
+        where TState : allows ref struct
     {
         NumericsDebug.AssertSameDimensions(left, right, destination);
         ref var leftPtr = ref MemoryMarshal.GetReference(left);
@@ -167,18 +130,21 @@ public static class SpanOperations
 }
 
 public interface IUnaryOperator<TState>
+    where TState : allows ref struct
 {
     static abstract Weight Invoke(in TState state, Weight value);
     static abstract SimdVector Invoke(in TState state, SimdVector value);
 }
 
 public interface IBinaryOperator<TState>
+    where TState : allows ref struct
 {
     static abstract Weight Invoke(in TState state, Weight left, Weight right);
     static abstract SimdVector Invoke(in TState state, SimdVector left, SimdVector right);
 }
 
 public interface ITernaryOperator<TState>
+    where TState : allows ref struct
 {
     static abstract Weight Invoke(in TState state, Weight first, Weight second, Weight third);
     static abstract SimdVector Invoke(in TState state, SimdVector first, SimdVector second, SimdVector third);
