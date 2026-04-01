@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace Ametrin.Numerics.Test;
 
 public sealed class MatMulTests
@@ -8,9 +10,13 @@ public sealed class MatMulTests
         const int Size = 15; // should include a vectorized part and a software part
         var random = new Random(42);
 
-        var left = Matrix.CreateSquare(Size);
-        var right = Matrix.CreateSquare(Size);
-        var destination = Matrix.CreateSquare(Size);
+        using var leftHandle = ArrayPool<float>.Shared.RentNumerics(Size * Size);
+        using var rightHandle = ArrayPool<float>.Shared.RentNumerics(Size * Size);
+        using var destinationHandle = ArrayPool<float>.Shared.RentNumerics(Size * Size, cleared: true);
+
+        var left = Matrix.SquareOf(Size, leftHandle);
+        var right = Matrix.SquareOf(Size, rightHandle);
+        var destination = Matrix.SquareOf(Size, destinationHandle);
 
         NumericsInitializer.HeUniform(left, random);
         NumericsInitializer.HeUniform(right, random);

@@ -45,6 +45,7 @@ public readonly struct Matrix(int rowCount, int columnCount, Vector storage) : I
 
     public static Matrix Empty { get; } // = new(0, 0, Vector.Empty);
     public static Matrix CreateSquare(int size) => Create(size, size);
+    public static Matrix SquareOf(int size, ArrayHandle handle) => Of(size, size, handle);
     public static Matrix Create(int rowCount, int columnCount) => new(rowCount, columnCount, Vector.Create(rowCount * columnCount));
     public static Matrix Of(int rowCount, int columnCount, Weight[] storage) => Of(rowCount, columnCount, Vector.Of(storage));
     public static Matrix Of(int rowCount, int columnCount, ArrayHandle handle) => Of(rowCount, columnCount, Vector.Of(handle, rowCount * columnCount));
