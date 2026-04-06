@@ -149,3 +149,19 @@ public interface ITernaryOperator<TState>
     static abstract Weight Invoke(in TState state, Weight first, Weight second, Weight third);
     static abstract SimdVector Invoke(in TState state, SimdVector first, SimdVector second, SimdVector third);
 }
+
+public readonly ref struct TanhOperator : IUnaryOperator<Empty>
+{
+    public static Weight Invoke(in Empty state, Weight value) => Weight.Tanh(value);
+
+    public static SimdVector Invoke(in Empty state, SimdVector value)
+    {
+        var abs = SimdVectorHelper.Abs(value);
+        var z = SimdVectorHelper.Exp(-2 * abs) - SimdVector.One; // may be numerically unstable there is a internal ExpM1 operation in Numerics.Tensors but vectorized it just falls back to this
+        var z2 = -z / (z + SimdVectorHelper.Create<Weight>(2));
+        var sign = SimdVectorHelper.As<float, uint>(value) & SimdVectorHelper.Create(~(uint)int.MaxValue); // when changing Weight also change uint to match the binary size
+        return SimdVectorHelper.As<uint, float>(sign ^ SimdVectorHelper.As<float, uint>(z2));
+    }
+}
+
+public readonly ref struct Empty;
