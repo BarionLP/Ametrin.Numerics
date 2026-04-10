@@ -100,6 +100,9 @@ public readonly struct Vector : ITensorLike<Vector>
     }
     public static Vector OfSize(Vector template) => Create(template.Count);
     public static Vector OfSize(Vector template, ArrayHandle handle) => Of(template.Count, handle);
+
+    public static bool HaveSameSize(Vector a, Vector b) => a.Count == b.Count;
+    public static bool HaveSameSize(Vector a, Vector b, Vector c) => a.Count == b.Count && a.Count == c.Count;
 }
 
 [NumericsHelper<Vector>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]

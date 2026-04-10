@@ -33,15 +33,13 @@ public static class NumericsDebug
     [Conditional("DEBUG"), StackTraceHidden]
     public static void AssertSameDimensions(Vector a, Vector b)
     {
-        Debug.Assert(a.Count == b.Count, VECTOR_SIZE_MISMATCH);
+        Debug.Assert(Vector.HaveSameSize(a, b), VECTOR_SIZE_MISMATCH);
     }
 
     [Conditional("DEBUG"), StackTraceHidden]
     public static void AssertSameDimensions(Vector a, Vector b, Vector c)
     {
-        Debug.Assert(a.Count == b.Count &&
-                     a.Count == c.Count,
-                     VECTOR_SIZE_MISMATCH);
+        Debug.Assert(Vector.HaveSameSize(a, b, c), VECTOR_SIZE_MISMATCH);
     }
 
     [Conditional("DEBUG"), StackTraceHidden]
@@ -56,7 +54,7 @@ public static class NumericsDebug
     [Conditional("DEBUG"), StackTraceHidden]
     public static void AssertSameDimensions(Matrix a, Matrix b)
     {
-        Debug.Assert(a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount, MATRIX_DIMENSION_MISMATCH);
+        Debug.Assert(Matrix.HaveSameSize(a, b), MATRIX_DIMENSION_MISMATCH);
     }
 
     [Conditional("DEBUG"), StackTraceHidden]
@@ -79,7 +77,7 @@ public static class NumericsDebug
     [Conditional("DEBUG"), StackTraceHidden]
     public static void AssertSameDimensions(Tensor a, Tensor b)
     {
-        Debug.Assert(a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount && a.LayerCount == b.LayerCount, TENSOR_DIMENSION_MISMATCH);
+        Debug.Assert(Tensor.HaveSameSize(a, b), TENSOR_DIMENSION_MISMATCH);
     }
 
     [Conditional("DEBUG"), StackTraceHidden]

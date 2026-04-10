@@ -47,6 +47,8 @@ public readonly struct Tensor(int rowCount, int columnCount, int layerCount, Vec
 
     public static Tensor OfSize(Tensor template) => Create(template.RowCount, template.ColumnCount, template.LayerCount);
     public static Tensor OfSize(Tensor template, ArrayHandle handle) => Of(template.RowCount, template.ColumnCount, template.LayerCount, handle);
+
+    public static bool HaveSameSize(Tensor a, Tensor b) => a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount && a.LayerCount == b.LayerCount;
 }
 
 [NumericsHelper<Tensor>]

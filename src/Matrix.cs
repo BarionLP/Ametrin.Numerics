@@ -62,6 +62,8 @@ public readonly struct Matrix(int rowCount, int columnCount, Vector storage) : I
     public static Matrix OfSize(Matrix template) => Create(template.RowCount, template.ColumnCount);
     public static Matrix OfSize(Matrix template, Vector storage) => Of(template.RowCount, template.ColumnCount, storage);
     public static Matrix OfSize(Matrix template, ArrayHandle handle) => Of(template.RowCount, template.ColumnCount, handle);
+
+    public static bool HaveSameSize(Matrix a, Matrix b) => a.RowCount == b.RowCount && a.ColumnCount == b.ColumnCount;
 }
 
 [NumericsHelper<Matrix>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]

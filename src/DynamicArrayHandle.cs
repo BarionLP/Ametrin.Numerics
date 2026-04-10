@@ -8,7 +8,7 @@ public sealed class DynamicArrayHandle(ArrayPool<Weight> pool) : IDisposable
     public ArrayHandle Handle { get; private set; } = new(null, pool);
     public ArrayPool<float> Pool => Handle.Pool!;
 
-    public void SetCount(int newCount)
+    public void SetMinCapacity(int newCount)
     {
         Debug.Assert(newCount >= 0);
         if (Handle.IsDisposed || Handle.Length < newCount)
@@ -24,8 +24,6 @@ public sealed class DynamicArrayHandle(ArrayPool<Weight> pool) : IDisposable
     }
 }
 
-
-// [Obsolete]
 public sealed class Dynamic<TTensor>(ArrayPool<Weight> pool) : IDisposable
     where TTensor : struct, ITensorLike<TTensor>
 {
@@ -36,9 +34,11 @@ public sealed class Dynamic<TTensor>(ArrayPool<Weight> pool) : IDisposable
 
     public void OfSize(TTensor template)
     {
-        handle.SetCount(template.FlatCount);
-
-        Tensor = TTensor.OfSize(template, handle.Handle);
+        if(!TTensor.HaveSameSize(template, Tensor))
+        {
+            handle.SetMinCapacity(template.FlatCount);
+            Tensor = TTensor.OfSize(template, handle.Handle);
+        }
     }
 
     public void Dispose()
@@ -54,8 +54,11 @@ public static class DynamicTensorExtensions
     {
         public void SetCount(int count)
         {
-            dynamic.handle.SetCount(count);
-            dynamic.Tensor = Vector.Of(count, dynamic.handle.Handle);
+            if(dynamic.Tensor.Count != count)
+            {
+                dynamic.handle.SetMinCapacity(count);
+                dynamic.Tensor = Vector.Of(count, dynamic.handle.Handle);
+            }
         }
     }
 
@@ -63,8 +66,11 @@ public static class DynamicTensorExtensions
     {
         public void SetCount(int rowCount, int columnCount)
         {
-            dynamic.handle.SetCount(rowCount * columnCount);
-            dynamic.Tensor = Matrix.Of(rowCount, columnCount, dynamic.handle.Handle);
+            if (dynamic.Tensor.RowCount != rowCount || dynamic.Tensor.ColumnCount != columnCount)
+            {
+                dynamic.handle.SetMinCapacity(rowCount * columnCount);
+                dynamic.Tensor = Matrix.Of(rowCount, columnCount, dynamic.handle.Handle);
+            }
         }
     }
 
@@ -72,7 +78,7 @@ public static class DynamicTensorExtensions
     {
         public void SetCount(int rowCount, int columnCount, int layerCount)
         {
-            dynamic.handle.SetCount(rowCount * columnCount * layerCount);
+            dynamic.handle.SetMinCapacity(rowCount * columnCount * layerCount);
             dynamic.Tensor = Tensor.Of(rowCount, columnCount, layerCount, dynamic.handle.Handle);
         }
     }

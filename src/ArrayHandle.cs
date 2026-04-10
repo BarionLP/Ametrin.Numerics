@@ -7,7 +7,6 @@ namespace Ametrin.Numerics;
 // owns the memory
 public sealed class ArrayHandle(Weight[]? array, ArrayPool<Weight>? pool) : IDisposable
 {
-    public static ArrayHandle Disposed { get; } = new(null, null);
     public ArrayPool<Weight>? Pool { get; } = pool;
     private Weight[]? array = array;
     public Weight[]? Array => array;
