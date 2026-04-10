@@ -62,19 +62,26 @@ public readonly ref struct AddTensorsOperator<TTensor> : IBinaryTensorOperator<E
     public static void Test2()
     {
         var input = new InputNode<Vector>();
-        var softmaxed = new UnaryOperationNode<SoftMaxOperation, Empty, Vector> { Source = input, State = default };
-        var relued = new UnaryOperationNode<LeakyReLUOperation, float, Vector> { Source = input, State = 0.1f };
-        var output = new BinaryOperationNode<AddTensorsOperator<Vector>, Empty, Vector, Vector, Vector> { LeftSource = softmaxed, RightSource = relued, State = default, };
+        var softmaxed = new UnaryOperationNode<SoftMaxOperation, Empty, Vector> { Source = input, OperationState = default };
+        var relued = new UnaryOperationNode<LeakyReLUOperation, float, Vector> { Source = input, OperationState = 0.1f };
+        var output = new BinaryOperationNode<AddTensorsOperator<Vector>, Empty, Vector, Vector, Vector> { LeftSource = softmaxed, RightSource = relued, OperationState = default, };
 
-        output.Backward(output.Evaluate());
+        var context = new GraphExecutionContext();
+
+        output.Backward(context, output.Forward(context));
     }
 }
 
-public interface IOperationNode<TTensor>
+public interface IOperationNode
+{
+    public object CreateState();
+}
+
+public interface IOperationNode<TTensor> : IOperationNode
     where TTensor : struct, ITensorLike<TTensor>
 {
-    public TTensor Evaluate();
-    public void Backward(TTensor outputGradient);
+    public TTensor Forward(GraphExecutionContext context);
+    public void Backward(GraphExecutionContext context, TTensor outputGradient);
 }
 
 public sealed class InputNode<TTensor> : IOperationNode<TTensor>
@@ -87,24 +94,32 @@ public sealed class InputNode<TTensor> : IOperationNode<TTensor>
         this.input = input;
     }
 
-    public TTensor Evaluate()
+    public TTensor Forward(GraphExecutionContext context)
     {
         return input;
     }
+    public void Backward(GraphExecutionContext context, TTensor outputGradient) { }
 
-    public void Backward(TTensor outputGradient) { }
+    public object CreateState() => throw new NotImplementedException();
 }
 
 public sealed class LearnableWeightsNode<TTensor>(TTensor weights) : IOperationNode<TTensor>
     where TTensor : struct, ITensorLike<TTensor>
 {
     private readonly TTensor weights = weights;
-    public readonly TTensor AccumulatedGradients = TTensor.OfSize(weights);
 
-    public TTensor Evaluate() => weights;
-    public void Backward(TTensor outputGradient)
+    public TTensor Forward(GraphExecutionContext context) => weights;
+    public void Backward(GraphExecutionContext context, TTensor outputGradient)
     {
-        TensorPrimitives.Add(AccumulatedGradients.AsSpan(), outputGradient.AsSpan(), AccumulatedGradients.AsSpan());
+        var gradients = context.GetOrCreate<State>(this).Gradients.AsSpan();
+        TensorPrimitives.Add(gradients, outputGradient.AsSpan(), gradients);
+    }
+
+    public object CreateState() => new State(weights);
+
+    private sealed class State(TTensor template)
+    {
+        public readonly TTensor Gradients = TTensor.OfSize(template);
     }
 }
 
@@ -114,26 +129,31 @@ public sealed class UnaryOperationNode<TOperator, TState, TTensor> : IOperationN
 {
 
     public required IOperationNode<TTensor> Source { get; init; }
-    public required TState State { get; init; }
+    public required TState OperationState { get; init; }
 
-    private TTensor input;
-    private readonly Dynamic<TTensor> output = new();
-    private readonly Dynamic<TTensor> inputGradient = new();
-
-    public TTensor Evaluate()
+    public TTensor Forward(GraphExecutionContext context)
     {
-        input = Source.Evaluate();
-        TOperator.ForwardTo(State, input, output);
-        return output;
+        var state = context.GetOrCreate<State>(this);
+        state.input = Source.Forward(context);
+        TOperator.ForwardTo(OperationState, state.input, state.output);
+        return state.output;
     }
 
-    public void Backward(TTensor outputGradient)
+    public void Backward(GraphExecutionContext context, TTensor outputGradient)
     {
-        inputGradient.SetSize(input);
+        var state = context.GetOrCreate<State>(this);
+        state.inputGradient.SetSize(state.input);
+        TOperator.BackwardTo(OperationState, state.input, state.output, outputGradient, state.inputGradient);
+        Source.Backward(context, state.inputGradient);
+    }
 
-        TOperator.BackwardTo(State, input, output, outputGradient, inputGradient);
+    public object CreateState() => new State();
 
-        Source.Backward(inputGradient);
+    private sealed class State
+    {
+        public TTensor input;
+        public readonly Dynamic<TTensor> output = new();
+        public readonly Dynamic<TTensor> inputGradient = new();
     }
 }
 
@@ -145,34 +165,41 @@ public sealed class BinaryOperationNode<TOperator, TState, TLeftTensor, TRightTe
 {
     public required IOperationNode<TLeftTensor> LeftSource { get; init; }
     public required IOperationNode<TRightTensor> RightSource { get; init; }
-    public required TState State { get; init; }
+    public required TState OperationState { get; init; }
 
-    private TLeftTensor inputLeft;
-    private TRightTensor inputRight;
-    private readonly Dynamic<TOutputTensor> output = new();
-    private readonly Dynamic<TLeftTensor> leftGradientHandle = new();
-    private readonly Dynamic<TRightTensor> rightGradientHandle = new();
-
-    public TOutputTensor Evaluate()
+    public TOutputTensor Forward(GraphExecutionContext context)
     {
-        inputLeft = LeftSource.Evaluate();
-        inputRight = RightSource.Evaluate();
-        TOperator.ForwardTo(State, inputLeft, inputRight, output);
-        return output;
+        var state = context.GetOrCreate<State>(this);
+        state.inputLeft = LeftSource.Forward(context);
+        state.inputRight = RightSource.Forward(context);
+        TOperator.ForwardTo(OperationState, state.inputLeft, state.inputRight, state.output);
+        return state.output;
     }
 
-    public void Backward(TOutputTensor outputGradient)
+    public void Backward(GraphExecutionContext context, TOutputTensor outputGradient)
     {
-        leftGradientHandle.SetSize(inputLeft);
-        rightGradientHandle.SetSize(inputRight);
+        var state = context.GetOrCreate<State>(this);
+        state.leftGradientHandle.SetSize(state.inputLeft);
+        state.rightGradientHandle.SetSize(state.inputRight);
 
-        var leftGradient = leftGradientHandle.Tensor;
-        var rightGradient = rightGradientHandle.Tensor;
+        var leftGradient = state.leftGradientHandle.Tensor;
+        var rightGradient = state.rightGradientHandle.Tensor;
 
-        TOperator.BackwardTo(State, inputLeft, inputRight, output, outputGradient, ref leftGradient, ref rightGradient);
+        TOperator.BackwardTo(OperationState, state.inputLeft, state.inputRight, state.output, outputGradient, ref leftGradient, ref rightGradient);
 
-        LeftSource.Backward(leftGradient);
-        RightSource.Backward(rightGradient);
+        LeftSource.Backward(context, leftGradient);
+        RightSource.Backward(context, rightGradient);
+    }
+
+    public object CreateState() => new State();
+
+    private sealed class State
+    {
+        public TLeftTensor inputLeft;
+        public TRightTensor inputRight;
+        public readonly Dynamic<TOutputTensor> output = new();
+        public readonly Dynamic<TLeftTensor> leftGradientHandle = new();
+        public readonly Dynamic<TRightTensor> rightGradientHandle = new();
     }
 }
 
@@ -240,3 +267,21 @@ public readonly ref struct MatrixVectorMultiplyOperation : IBinaryTensorOperator
 }
 
 public readonly struct Empty;
+
+
+public sealed class GraphExecutionContext
+{
+    private readonly Dictionary<object, object> _nodeState = [];
+    public TState GetOrCreate<TState>(IOperationNode node) where TState : class
+    {
+        if (!_nodeState.TryGetValue(node, out var state))
+        {
+            state = node.CreateState();
+            _nodeState.Add(node, state);
+        }
+
+        return (TState)state;
+    }
+
+    public int Version { get; set; }
+}
