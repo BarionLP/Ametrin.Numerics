@@ -8,7 +8,7 @@ namespace Ametrin.Numerics;
 public sealed class ArrayHandle(Weight[]? array, ArrayPool<Weight>? pool) : IDisposable
 {
     public static ArrayHandle Disposed { get; } = new(null, null);
-    private readonly ArrayPool<Weight>? pool = pool;
+    public ArrayPool<Weight>? Pool { get; } = pool;
     private Weight[]? array = array;
     public Weight[]? Array => array;
     public int Length => array?.Length ?? 0;
@@ -40,7 +40,7 @@ public sealed class ArrayHandle(Weight[]? array, ArrayPool<Weight>? pool) : IDis
         var local = Interlocked.Exchange(ref array, null);
         if (local is null) return; // if local is null a different thread beat us to the disposal
 
-        pool?.Return(local);
+        Pool?.Return(local);
 #if DEBUG
         GC.SuppressFinalize(this);
 #endif
@@ -49,7 +49,7 @@ public sealed class ArrayHandle(Weight[]? array, ArrayPool<Weight>? pool) : IDis
 #if DEBUG
     ~ArrayHandle()
     {
-        if (array is null || pool is null) return;
+        if (array is null || Pool is null) return;
         Console.WriteLine("not disposed handle");
     }
 #endif

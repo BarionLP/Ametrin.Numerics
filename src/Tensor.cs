@@ -34,7 +34,7 @@ public readonly struct Tensor(int rowCount, int columnCount, int layerCount, Vec
     public static Tensor CubeOf(int size, ArrayHandle handle) => Of(size, size, size, handle);
     public static Tensor Create(int rowCount, int columnCount, int layerCount) => new(rowCount, columnCount, layerCount, Vector.Create(rowCount * columnCount * layerCount));
     public static Tensor Of(int rowCount, int columnCount, int layerCount, Weight[] storage) => Of(rowCount, columnCount, layerCount, Vector.Of(storage));
-    public static Tensor Of(int rowCount, int columnCount, int layerCount, ArrayHandle handle) => Of(rowCount, columnCount, layerCount, Vector.Of(handle, rowCount * columnCount * layerCount));
+    public static Tensor Of(int rowCount, int columnCount, int layerCount, ArrayHandle handle) => Of(rowCount, columnCount, layerCount, Vector.Of(rowCount * columnCount * layerCount, handle));
     public static Tensor Of(int rowCount, int columnCount, int layerCount, Vector storage)
     {
         if (storage.Count != rowCount * columnCount * layerCount)

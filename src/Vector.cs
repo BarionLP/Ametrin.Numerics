@@ -87,19 +87,19 @@ public readonly struct Vector : ITensorLike<Vector>
     public static Vector Empty { get; } = new(new([], null), 0, 0);
     public static Vector Create(int size) => new(new(new Weight[size], null), 0, size);
     public static Vector Of(Weight[] array) => new(new(array, null), 0, array.Length);
-    public static Vector Of(Weight[] array, int size)
+    public static Vector Of(int size, Weight[] array)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, array.Length);
         return new Vector(new(array, null), 0, size);
     }
-    public static Vector Of(ArrayHandle handle, int size)
+    public static Vector Of(int size, ArrayHandle handle)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, handle.Length);
         Debug.Assert(!handle.IsDisposed);
         return new Vector(handle, 0, size);
     }
     public static Vector OfSize(Vector template) => Create(template.Count);
-    public static Vector OfSize(Vector template, ArrayHandle handle) => Of(handle, template.Count);
+    public static Vector OfSize(Vector template, ArrayHandle handle) => Of(template.Count, handle);
 }
 
 [NumericsHelper<Vector>(GenerateFromTensorPrimitives = [nameof(TensorPrimitives.Add), nameof(TensorPrimitives.Subtract)])]
