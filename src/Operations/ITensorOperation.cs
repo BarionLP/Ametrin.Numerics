@@ -1,38 +1,31 @@
-using System.Buffers;
-
 namespace Ametrin.Numerics.Operations;
 
 public interface IUnaryTensorOperator<TState, TTensor>
     where TState : allows ref struct
-    where TTensor : struct, ITensorLike<TTensor>, allows ref struct
+    where TTensor : struct, ITensorLike<TTensor>
 {
-    public abstract static int GetOutputSize(TTensor input);
-    public abstract static TTensor ForwardTo(TState state, TTensor input, ArrayHandle outputHandle);
+    public abstract static void ForwardTo(TState state, TTensor input, Dynamic<TTensor> output);
     public abstract static void BackwardTo(TState state, TTensor input, TTensor output, TTensor outputGradient, TTensor inputGradient);
 }
 
 public interface IBinaryTensorOperator<TState, TLeftTensor, TRightTensor, TOutputTensor>
     where TState : allows ref struct
-    where TLeftTensor : allows ref struct
-    where TRightTensor : allows ref struct
-    where TOutputTensor : allows ref struct
+    where TLeftTensor : struct, ITensorLike<TLeftTensor>
+    where TRightTensor : struct, ITensorLike<TRightTensor>
+    where TOutputTensor : struct, ITensorLike<TOutputTensor>
 {
-    public abstract static int GetOutputSize(TLeftTensor left, TRightTensor right);
-    public abstract static TOutputTensor ForwardTo(TState state, TLeftTensor left, TRightTensor right, ArrayHandle outputHandle);
+    public abstract static void ForwardTo(TState state, TLeftTensor left, TRightTensor right, Dynamic<TOutputTensor> output);
     public abstract static void BackwardTo(TState state, TLeftTensor left, TRightTensor right, TOutputTensor output, TOutputTensor outputGradient, TLeftTensor leftGradient, TRightTensor rightGradient);
 }
 
 public readonly ref struct AddTensorsOperator<TTensor> : IBinaryTensorOperator<Empty, TTensor, TTensor, TTensor>
     where TTensor : struct, ITensorLike<TTensor>
 {
-    public static int GetOutputSize(TTensor left, TTensor right) => left.FlatCount;
-
-    public static TTensor ForwardTo(Empty _, TTensor left, TTensor right, ArrayHandle outputHandle)
+    public static void ForwardTo(Empty _, TTensor left, TTensor right, Dynamic<TTensor> output)
     {
         NumericsDebug.AssertSameDimensions(left, right);
-        var output = TTensor.OfSize(left, outputHandle);
+        output.SetSize(left);
         TensorPrimitives.Add(left.AsSpan(), right.AsSpan(), output.AsSpan());
-        return output;
     }
 
     public static void BackwardTo(Empty _, TTensor left, TTensor right, TTensor output, TTensor outputGradient, TTensor leftGradient, TTensor rightGradient)
@@ -114,22 +107,19 @@ public sealed class UnaryOperation<TOperator, TState, TTensor> : IOperationNode<
     public required TState State { get; init; }
 
     private TTensor input;
-    private readonly DynamicArrayHandle outputHandle = new();
-    private TTensor output;
+    private readonly Dynamic<TTensor> output = new();
+    private readonly Dynamic<TTensor> inputGradient = new();
 
     public TTensor Evaluate()
     {
         input = Source.Evaluate();
-        var outputSize = TOperator.GetOutputSize(input);
-        outputHandle.SetCount(outputSize);
-        output = TOperator.ForwardTo(State, input, outputHandle.Handle);
+        TOperator.ForwardTo(State, input, output);
         return output;
     }
 
     public void Backward(TTensor outputGradient)
     {
-        using var inputGradientHandle = ArrayPool<Weight>.Shared.RentNumerics(input.FlatCount);
-        var inputGradient = TTensor.OfSize(input, inputGradientHandle);
+        inputGradient.SetSize(input);
 
         TOperator.BackwardTo(State, input, output, outputGradient, inputGradient);
 
@@ -149,41 +139,37 @@ public sealed class BinaryOperation<TOperator, TState, TLeftTensor, TRightTensor
 
     private TLeftTensor inputLeft;
     private TRightTensor inputRight;
-    private readonly DynamicArrayHandle outputHandle = new();
-    private TOutputTensor output;
+    private readonly Dynamic<TOutputTensor> outputHandle = new();
+    private readonly Dynamic<TLeftTensor> leftGradientHandle = new();
+    private readonly Dynamic<TRightTensor> rightGradientHandle = new();
 
     public TOutputTensor Evaluate()
     {
         inputLeft = LeftSource.Evaluate();
         inputRight = RightSource.Evaluate();
-        var outputSize = TOperator.GetOutputSize(inputLeft, inputRight);
-        outputHandle.SetCount(outputSize);
-        return output = TOperator.ForwardTo(State, inputLeft, inputRight, outputHandle.Handle);
+        TOperator.ForwardTo(State, inputLeft, inputRight, outputHandle);
+        return outputHandle.Tensor;
     }
 
     public void Backward(TOutputTensor outputGradient)
     {
-        using var inputLeftGradientHandle = ArrayPool<Weight>.Shared.RentNumerics(inputLeft.FlatCount);
-        var inputLeftGradient = TLeftTensor.OfSize(inputLeft, inputLeftGradientHandle);
+        leftGradientHandle.SetSize(inputLeft);
+        rightGradientHandle.SetSize(inputRight);
 
-        using var inputRightGradientHandle = ArrayPool<Weight>.Shared.RentNumerics(inputRight.FlatCount);
-        var inputRightGradient = TRightTensor.OfSize(inputRight, inputRightGradientHandle);
+        TOperator.BackwardTo(State, inputLeft, inputRight, outputHandle, outputGradient, leftGradientHandle.Tensor, rightGradientHandle.Tensor);
 
-        TOperator.BackwardTo(State, inputLeft, inputRight, output, outputGradient, inputLeftGradient, inputRightGradient);
-
-        LeftSource.Backward(inputLeftGradient);
-        RightSource.Backward(inputRightGradient);
+        LeftSource.Backward(leftGradientHandle);
+        RightSource.Backward(rightGradientHandle);
     }
 }
 
 public readonly ref struct SoftMaxOperation : IUnaryTensorOperator<Empty, Vector>
 {
     public static int GetOutputSize(Vector input) => input.Count;
-    public static Vector ForwardTo(Empty _, Vector input, ArrayHandle outputStorage)
+    public static void ForwardTo(Empty _, Vector input, Dynamic<Vector> outputStorage)
     {
-        var output = Vector.OfSize(input, outputStorage);
-        input.SoftMaxTo(output);
-        return output;
+        outputStorage.SetSize(input);
+        input.SoftMaxTo(outputStorage);
     }
 
     public static void BackwardTo(Empty _, Vector input, Vector output, Vector outputGradient, Vector inputGradient)
@@ -198,11 +184,10 @@ public readonly ref struct SoftMaxOperation : IUnaryTensorOperator<Empty, Vector
 public readonly ref struct LeakyReLUOperation : IUnaryTensorOperator<Weight, Vector>
 {
     public static int GetOutputSize(Vector input) => input.Count;
-    public static Vector ForwardTo(Weight alpha, Vector input, ArrayHandle outputStorage)
+    public static void ForwardTo(Weight alpha, Vector input, Dynamic<Vector> outputStorage)
     {
-        var output = Vector.OfSize(input, outputStorage);
-        SpanOperations.MapTo<LeakyReLUOp, Weight>(alpha, input.AsSpan(), output.AsSpan());
-        return output;
+        outputStorage.SetSize(input);
+        SpanOperations.MapTo<LeakyReLUOp, Weight>(alpha, input.AsSpan(), outputStorage.AsSpan());
     }
 
     public static void BackwardTo(Weight alpha, Vector input, Vector output, Vector outputGradient, Vector inputGradient)
@@ -227,12 +212,10 @@ public readonly ref struct LeakyReLUOperation : IUnaryTensorOperator<Weight, Vec
 
 public readonly ref struct MatrixVectorMultiplyOperation : IBinaryTensorOperator<Empty, Matrix, Vector, Vector>
 {
-    public static int GetOutputSize(Matrix left, Vector right) => left.ColumnCount;
-    public static Vector ForwardTo(Empty _, Matrix left, Vector right, ArrayHandle outputHandle)
+    public static void ForwardTo(Empty _, Matrix left, Vector right, Dynamic<Vector> output)
     {
-        var output = Vector.Of(left.ColumnCount, outputHandle);
+        output.SetSize(left.ColumnCount);
         left.MultiplyTo(right, output);
-        return output;
     }
 
     public static void BackwardTo(Empty _, Matrix left, Vector right, Vector output, Vector outputGradient, Matrix leftGradient, Vector rightGradient)

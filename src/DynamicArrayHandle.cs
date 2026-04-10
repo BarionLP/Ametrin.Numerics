@@ -30,11 +30,12 @@ public sealed class Dynamic<TTensor>(ArrayPool<Weight> pool) : IDisposable
     public Dynamic() : this(ArrayPool<Weight>.Shared) { }
     internal readonly DynamicArrayHandle handle = new(pool);
     public ArrayPool<float> Pool => handle.Pool;
-    public TTensor Tensor { get; internal set; } = TTensor.Empty;
+    public TTensor Tensor = TTensor.Empty;
+    public Span<Weight> AsSpan() => Tensor.AsSpan();
 
-    public void OfSize(TTensor template)
+    public void SetSize(TTensor template)
     {
-        if(!TTensor.HaveSameSize(template, Tensor))
+        if (!TTensor.HaveSameSize(template, Tensor))
         {
             handle.SetMinCapacity(template.FlatCount);
             Tensor = TTensor.OfSize(template, handle.Handle);
@@ -46,13 +47,15 @@ public sealed class Dynamic<TTensor>(ArrayPool<Weight> pool) : IDisposable
         handle.Dispose();
         Tensor = TTensor.Empty;
     }
+
+    public static implicit operator TTensor(Dynamic<TTensor> dynamic) => dynamic.Tensor;
 }
 
 public static class DynamicTensorExtensions
 {
     extension(Dynamic<Vector> dynamic)
     {
-        public void SetCount(int count)
+        public void SetSize(int count)
         {
             if(dynamic.Tensor.Count != count)
             {
@@ -64,7 +67,7 @@ public static class DynamicTensorExtensions
 
     extension(Dynamic<Matrix> dynamic)
     {
-        public void SetCount(int rowCount, int columnCount)
+        public void SetSize(int rowCount, int columnCount)
         {
             if (dynamic.Tensor.RowCount != rowCount || dynamic.Tensor.ColumnCount != columnCount)
             {
@@ -76,7 +79,7 @@ public static class DynamicTensorExtensions
 
     extension(Dynamic<Tensor> dynamic)
     {
-        public void SetCount(int rowCount, int columnCount, int layerCount)
+        public void SetSize(int rowCount, int columnCount, int layerCount)
         {
             dynamic.handle.SetMinCapacity(rowCount * columnCount * layerCount);
             dynamic.Tensor = Tensor.Of(rowCount, columnCount, layerCount, dynamic.handle.Handle);
