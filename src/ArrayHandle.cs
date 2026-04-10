@@ -46,10 +46,11 @@ public sealed class ArrayHandle(Weight[]? array, ArrayPool<Weight>? pool) : IDis
     }
 
 #if DEBUG
+    private readonly string? _ctorStack = Environment.StackTrace;
     ~ArrayHandle()
     {
         if (array is null || Pool is null) return;
-        Console.WriteLine("not disposed handle");
+        Console.WriteLine($"not disposed handle, allocated at:\n{_ctorStack}");
     }
 #endif
 }

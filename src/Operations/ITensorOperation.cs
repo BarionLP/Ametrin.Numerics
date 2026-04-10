@@ -15,7 +15,7 @@ public interface IBinaryTensorOperator<TState, TLeftTensor, TRightTensor, TOutpu
     where TOutputTensor : struct, ITensorLike<TOutputTensor>
 {
     public abstract static void ForwardTo(TState state, TLeftTensor left, TRightTensor right, Dynamic<TOutputTensor> output);
-    public abstract static void BackwardTo(TState state, TLeftTensor left, TRightTensor right, TOutputTensor output, TOutputTensor outputGradient, TLeftTensor leftGradient, TRightTensor rightGradient);
+    public abstract static void BackwardTo(TState state, TLeftTensor left, TRightTensor right, TOutputTensor output, TOutputTensor outputGradient, ref TLeftTensor leftGradient, ref TRightTensor rightGradient);
 }
 
 public readonly ref struct AddTensorsOperator<TTensor> : IBinaryTensorOperator<Empty, TTensor, TTensor, TTensor>
@@ -28,10 +28,10 @@ public readonly ref struct AddTensorsOperator<TTensor> : IBinaryTensorOperator<E
         TensorPrimitives.Add(left.AsSpan(), right.AsSpan(), output.AsSpan());
     }
 
-    public static void BackwardTo(Empty _, TTensor left, TTensor right, TTensor output, TTensor outputGradient, TTensor leftGradient, TTensor rightGradient)
+    public static void BackwardTo(Empty _, TTensor left, TTensor right, TTensor output, TTensor outputGradient, ref TTensor leftGradient, ref TTensor rightGradient)
     {
-        outputGradient.AsSpan().CopyTo(leftGradient.AsSpan());
-        outputGradient.AsSpan().CopyTo(rightGradient.AsSpan());
+        leftGradient = outputGradient;
+        rightGradient = outputGradient;
     }
 
     public static void Test()
@@ -61,10 +61,10 @@ public readonly ref struct AddTensorsOperator<TTensor> : IBinaryTensorOperator<E
 
     public static void Test2()
     {
-        var input = new WeightsSource<Vector> { Tensor = Vector.Empty };
-        var softmaxed = new UnaryOperation<SoftMaxOperation, Empty, Vector> { Source = input, State = default };
-        var relued = new UnaryOperation<LeakyReLUOperation, float, Vector> { Source = input, State = 0.1f };
-        var output = new BinaryOperation<AddTensorsOperator<Vector>, Empty, Vector, Vector, Vector> { LeftSource = softmaxed, RightSource = relued, State = default, };
+        var input = new InputNode<Vector>();
+        var softmaxed = new UnaryOperationNode<SoftMaxOperation, Empty, Vector> { Source = input, State = default };
+        var relued = new UnaryOperationNode<LeakyReLUOperation, float, Vector> { Source = input, State = 0.1f };
+        var output = new BinaryOperationNode<AddTensorsOperator<Vector>, Empty, Vector, Vector, Vector> { LeftSource = softmaxed, RightSource = relued, State = default, };
 
         output.Backward(output.Evaluate());
     }
@@ -77,28 +77,38 @@ public interface IOperationNode<TTensor>
     public void Backward(TTensor outputGradient);
 }
 
-public readonly struct WeightsSource<TTensor> : IOperationNode<TTensor>
+public sealed class InputNode<TTensor> : IOperationNode<TTensor>
     where TTensor : struct, ITensorLike<TTensor>
 {
-    public required TTensor Tensor
-    {
-        get;
-        init
-        {
-            field = value;
-            AccumulatedGradients = TTensor.OfSize(value);
-        }
-    }
-    public TTensor AccumulatedGradients { get; private init; }
+    private TTensor input = TTensor.Empty;
 
-    public TTensor Evaluate() => Tensor;
+    public void Set(TTensor input)
+    {
+        this.input = input;
+    }
+
+    public TTensor Evaluate()
+    {
+        return input;
+    }
+
+    public void Backward(TTensor outputGradient) { }
+}
+
+public sealed class LearnableWeightsNode<TTensor>(TTensor weights) : IOperationNode<TTensor>
+    where TTensor : struct, ITensorLike<TTensor>
+{
+    private readonly TTensor weights = weights;
+    public readonly TTensor AccumulatedGradients = TTensor.OfSize(weights);
+
+    public TTensor Evaluate() => weights;
     public void Backward(TTensor outputGradient)
     {
         TensorPrimitives.Add(AccumulatedGradients.AsSpan(), outputGradient.AsSpan(), AccumulatedGradients.AsSpan());
     }
 }
 
-public sealed class UnaryOperation<TOperator, TState, TTensor> : IOperationNode<TTensor>
+public sealed class UnaryOperationNode<TOperator, TState, TTensor> : IOperationNode<TTensor>
     where TOperator : IUnaryTensorOperator<TState, TTensor>, allows ref struct
     where TTensor : struct, ITensorLike<TTensor>
 {
@@ -127,7 +137,7 @@ public sealed class UnaryOperation<TOperator, TState, TTensor> : IOperationNode<
     }
 }
 
-public sealed class BinaryOperation<TOperator, TState, TLeftTensor, TRightTensor, TOutputTensor> : IOperationNode<TOutputTensor>
+public sealed class BinaryOperationNode<TOperator, TState, TLeftTensor, TRightTensor, TOutputTensor> : IOperationNode<TOutputTensor>
     where TOperator : IBinaryTensorOperator<TState, TLeftTensor, TRightTensor, TOutputTensor>, allows ref struct
     where TLeftTensor : struct, ITensorLike<TLeftTensor>
     where TRightTensor : struct, ITensorLike<TRightTensor>
@@ -139,7 +149,7 @@ public sealed class BinaryOperation<TOperator, TState, TLeftTensor, TRightTensor
 
     private TLeftTensor inputLeft;
     private TRightTensor inputRight;
-    private readonly Dynamic<TOutputTensor> outputHandle = new();
+    private readonly Dynamic<TOutputTensor> output = new();
     private readonly Dynamic<TLeftTensor> leftGradientHandle = new();
     private readonly Dynamic<TRightTensor> rightGradientHandle = new();
 
@@ -147,8 +157,8 @@ public sealed class BinaryOperation<TOperator, TState, TLeftTensor, TRightTensor
     {
         inputLeft = LeftSource.Evaluate();
         inputRight = RightSource.Evaluate();
-        TOperator.ForwardTo(State, inputLeft, inputRight, outputHandle);
-        return outputHandle.Tensor;
+        TOperator.ForwardTo(State, inputLeft, inputRight, output);
+        return output;
     }
 
     public void Backward(TOutputTensor outputGradient)
@@ -156,10 +166,13 @@ public sealed class BinaryOperation<TOperator, TState, TLeftTensor, TRightTensor
         leftGradientHandle.SetSize(inputLeft);
         rightGradientHandle.SetSize(inputRight);
 
-        TOperator.BackwardTo(State, inputLeft, inputRight, outputHandle, outputGradient, leftGradientHandle.Tensor, rightGradientHandle.Tensor);
+        var leftGradient = leftGradientHandle.Tensor;
+        var rightGradient = rightGradientHandle.Tensor;
 
-        LeftSource.Backward(leftGradientHandle);
-        RightSource.Backward(rightGradientHandle);
+        TOperator.BackwardTo(State, inputLeft, inputRight, output, outputGradient, ref leftGradient, ref rightGradient);
+
+        LeftSource.Backward(leftGradient);
+        RightSource.Backward(rightGradient);
     }
 }
 
@@ -218,7 +231,7 @@ public readonly ref struct MatrixVectorMultiplyOperation : IBinaryTensorOperator
         left.MultiplyTo(right, output);
     }
 
-    public static void BackwardTo(Empty _, Matrix left, Vector right, Vector output, Vector outputGradient, Matrix leftGradient, Vector rightGradient)
+    public static void BackwardTo(Empty _, Matrix left, Vector right, Vector output, Vector outputGradient, ref Matrix leftGradient, ref Vector rightGradient)
     {
         VectorHelper.MultiplyToMatrixTo(outputGradient, right, leftGradient);
         left.MultiplyTransposedTo(outputGradient, rightGradient);
